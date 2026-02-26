@@ -1,0 +1,50 @@
+# This file configures the Flutter analyzer (linter and static analysis)
+# It helps catch common errors and enforce best practices
+
+# Include default Flutter linting rules
+include: package:flutter_lints/flutter.yaml
+
+# Analyzer configuration
+analyzer:
+  # Exclude generated files and build outputs from analysis
+  exclude:
+    - '**/*.g.dart'  # Generated files
+    - '**/*.freezed.dart'  # Freezed generated files
+    - 'build/**'  # Build outputs
+    - 'ios/**'  # iOS native code
+    - 'android/**'  # Android native code
+  
+  # Enable additional checks
+  language:
+    strict-casts: true  # Warn about unsafe type casts
+    strict-inference: true  # Require explicit types when inference fails
+    strict-raw-types: true  # Warn about using raw generic types
+
+# Linter rules - customize as needed
+linter:
+  rules:
+    # Error rules - must fix
+    avoid_print: false  # Allow print() for debugging (set true in production)
+    prefer_const_constructors: true  # Use const when possible for performance
+    prefer_const_literals_to_create_immutables: true
+    
+    # Style rules
+    always_declare_return_types: true  # Explicitly declare function return types
+    always_put_required_named_parameters_first: true
+    always_specify_types: false  # Can be true if you prefer explicit types everywhere
+    
+    # Documentation
+    public_member_api_docs: false  # Set true to require documentation on public APIs
+    
+    # Best practices
+    avoid_unnecessary_containers: true
+    sized_box_for_whitespace: true
+    use_key_in_widget_constructors: true
+    avoid_redundant_argument_values: true
+    
+    # Performance
+    avoid_function_literals_in_foreach_calls: true
+    
+    # Null safety
+    unnecessary_null_aware_assignments: true
+    unnecessary_nullable_for_final_variable_declarations: true

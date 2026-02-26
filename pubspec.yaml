@@ -1,0 +1,44 @@
+name: farm_buddy_app  # Name of the Flutter application
+description: Farm Buddy - Multi-Crop Growth Assistant mobile app  # App description
+publish_to: 'none'  # Don't publish to pub.dev
+
+version: 1.0.0+1  # App version (semantic versioning)
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'  # Dart SDK version constraint
+
+dependencies:
+  flutter:
+    sdk: flutter  # Flutter framework from SDK
+  
+  # HTTP client for making API calls to Django backend
+  http: ^1.1.0  # For REST API communication
+  
+  # State management
+  provider: ^6.1.1  # For managing app state across screens
+  
+  # UI and utilities
+  cupertino_icons: ^1.0.2  # iOS style icons
+  intl: ^0.18.1  # For date formatting and internationalization
+  
+  # Local storage (if needed for caching)
+  shared_preferences: ^2.2.2  # For storing user preferences locally
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter  # Testing framework
+  
+  flutter_lints: ^3.0.0  # Linting rules for better code quality
+
+flutter:
+  uses-material-design: true  # Enable Material Design icons and components
+  
+  # Add assets (images, fonts) here if needed
+  # assets:
+  #   - images/logo.png
+  
+  # Uncomment to add custom fonts
+  # fonts:
+  #   - family: Roboto
+  #     fonts:
+  #       - asset: fonts/Roboto-Regular.ttf
