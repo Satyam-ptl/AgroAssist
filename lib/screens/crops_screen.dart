@@ -27,6 +27,8 @@ class _CropsScreenState extends State<CropsScreen> {
   String selectedSoil = 'All';
   String selectedState = '';
   String searchQuery = '';
+  bool toolsExpanded = false;
+  final ExpansibleController toolsController = ExpansibleController();
   final TextEditingController searchController = TextEditingController();
   final TextEditingController stateController = TextEditingController();
 
@@ -178,142 +180,254 @@ class _CropsScreenState extends State<CropsScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: seasons
-                    .map(
-                      (season) => ChoiceChip(
-                        label: Text(season),
-                        selected: selectedSeason == season,
-                        onSelected: (_) {
-                          setState(() => selectedSeason = season);
-                          loadCrops();
-                        },
-                      ),
-                    )
-                    .toList(),
-              ),
-            ),
-          ),
-          SizedBox(
-            height: 42,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              itemCount: soils.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final soil = soils[index];
-                return FilterChip(
-                  label: Text(soil),
-                  selected: selectedSoil == soil,
-                  onSelected: (_) {
-                    setState(() => selectedSoil = soil);
-                    loadCrops();
-                  },
-                );
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search crop name',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.close),
-                              onPressed: () {
-                                searchController.clear();
-                                setState(() => searchQuery = '');
-                                loadCrops();
-                              },
-                            )
-                          : null,
-                      isDense: true,
-                    ),
-                    onSubmitted: (value) {
-                      setState(() => searchQuery = value.trim());
-                      loadCrops();
-                    },
-                  ),
+            child: Card(
+              margin: EdgeInsets.zero,
+              child: ExpansionTile(
+                controller: toolsController,
+                initiallyExpanded: toolsExpanded,
+                onExpansionChanged: (value) {
+                  setState(() => toolsExpanded = value);
+                },
+                leading: const Icon(Icons.tune),
+                title: const Text('Crop tools'),
+                subtitle: Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    Chip(label: Text('Season: $selectedSeason')),
+                    Chip(label: Text('Soil: $selectedSoil')),
+                    if (selectedState.isNotEmpty) Chip(label: Text('State: $selectedState')),
+                    if (searchQuery.isNotEmpty) Chip(label: Text('Search: $searchQuery')),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: stateController,
-                    decoration: InputDecoration(
-                      hintText: 'Filter by state',
-                      prefixIcon: const Icon(Icons.location_on_outlined),
-                      suffixIcon: selectedState.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.close),
-                              onPressed: () {
-                                stateController.clear();
-                                setState(() => selectedState = '');
-                                loadCrops();
-                              },
-                            )
-                          : null,
-                      isDense: true,
-                    ),
-                    onSubmitted: (value) {
-                      setState(() => selectedState = value.trim());
-                      loadCrops();
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: () {
-                    setState(() {
-                      selectedState = stateController.text.trim();
-                      searchQuery = searchController.text.trim();
-                    });
-                    loadCrops();
-                  },
-                  child: const Text('Apply'),
-                ),
-              ],
-            ),
-          ),
-          if (recommendations.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                childrenPadding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                 children: [
-                  Text(
-                    LocalizationService.tr('Recommendations'),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: seasons
+                          .map(
+                            (season) => ChoiceChip(
+                              label: Text(season),
+                              selected: selectedSeason == season,
+                              onSelected: (_) {
+                                setState(() => selectedSeason = season);
+                                loadCrops();
+                              },
+                            ),
+                          )
+                          .toList(),
+                    ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 10),
                   SizedBox(
-                    height: 38,
+                    height: 42,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
-                      itemCount: recommendations.length > 8 ? 8 : recommendations.length,
+                      itemCount: soils.length,
                       separatorBuilder: (_, __) => const SizedBox(width: 8),
                       itemBuilder: (context, index) {
-                        final rec = recommendations[index];
-                        return Chip(label: Text(rec['crop_name']?.toString() ?? ''));
+                        final soil = soils[index];
+                        return FilterChip(
+                          label: Text(soil),
+                          selected: selectedSoil == soil,
+                          onSelected: (_) {
+                            setState(() => selectedSoil = soil);
+                            loadCrops();
+                          },
+                        );
                       },
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: searchController,
+                          decoration: InputDecoration(
+                            hintText: 'Search crop name',
+                            prefixIcon: const Icon(Icons.search),
+                            suffixIcon: searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.close),
+                                    onPressed: () {
+                                      searchController.clear();
+                                      setState(() => searchQuery = '');
+                                      loadCrops();
+                                    },
+                                  )
+                                : null,
+                            isDense: true,
+                          ),
+                          onSubmitted: (value) {
+                            setState(() => searchQuery = value.trim());
+                            loadCrops();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: stateController,
+                          decoration: InputDecoration(
+                            hintText: 'Filter by state',
+                            prefixIcon: const Icon(Icons.location_on_outlined),
+                            suffixIcon: selectedState.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.close),
+                                    onPressed: () {
+                                      stateController.clear();
+                                      setState(() => selectedState = '');
+                                      loadCrops();
+                                    },
+                                  )
+                                : null,
+                            isDense: true,
+                          ),
+                          onSubmitted: (value) {
+                            setState(() => selectedState = value.trim());
+                            loadCrops();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: () {
+                          setState(() {
+                            selectedState = stateController.text.trim();
+                            searchQuery = searchController.text.trim();
+                          });
+                          loadCrops();
+                        },
+                        child: const Text('Apply'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            searchController.clear();
+                            stateController.clear();
+                            setState(() {
+                              selectedSeason = 'All';
+                              selectedSoil = 'All';
+                              selectedState = '';
+                              searchQuery = '';
+                            });
+                            loadCrops();
+                          },
+                          icon: const Icon(Icons.filter_alt_off),
+                          label: const Text('Reset filters'),
+                        ),
+                        FilledButton.tonalIcon(
+                          onPressed: () {
+                            toolsController.collapse();
+                            setState(() => toolsExpanded = false);
+                          },
+                          icon: const Icon(Icons.expand_less),
+                          label: const Text('Minimize tools'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (recommendations.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        LocalizationService.tr('Recommendations'),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      height: 38,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: recommendations.length > 8 ? 8 : recommendations.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          final rec = recommendations[index];
+                          return Chip(label: Text(rec['crop_name']?.toString() ?? ''));
+                        },
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  _buildInputCalculatorCard(),
                 ],
               ),
             ),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: _buildInputCalculatorCard(),
+            child: Card(
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Row(
+                  children: [
+                    PopupMenuButton<String>(
+                      tooltip: 'Season',
+                      onSelected: (value) {
+                        setState(() => selectedSeason = value);
+                        loadCrops();
+                      },
+                      itemBuilder: (context) => seasons
+                          .map((season) => PopupMenuItem<String>(
+                                value: season,
+                                child: Text(season),
+                              ))
+                          .toList(),
+                      child: Chip(
+                        avatar: const Icon(Icons.event, size: 16),
+                        label: Text('Season: $selectedSeason'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    PopupMenuButton<String>(
+                      tooltip: 'Soil',
+                      onSelected: (value) {
+                        setState(() => selectedSoil = value);
+                        loadCrops();
+                      },
+                      itemBuilder: (context) => soils
+                          .map((soil) => PopupMenuItem<String>(
+                                value: soil,
+                                child: Text(soil),
+                              ))
+                          .toList(),
+                      child: Chip(
+                        avatar: const Icon(Icons.terrain, size: 16),
+                        label: Text('Soil: $selectedSoil'),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text('${crops.length} crops', style: const TextStyle(color: Colors.black54)),
+                    IconButton(
+                      tooltip: toolsExpanded ? 'Hide tools' : 'Show tools',
+                      onPressed: () {
+                        if (toolsExpanded) {
+                          toolsController.collapse();
+                        } else {
+                          toolsController.expand();
+                        }
+                        setState(() => toolsExpanded = !toolsExpanded);
+                      },
+                      icon: Icon(toolsExpanded ? Icons.expand_less : Icons.expand_more),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
           if (_canSelectCropForTasks)
             Padding(
@@ -766,6 +880,7 @@ class _CropsScreenState extends State<CropsScreen> {
     searchController.dispose();
     stateController.dispose();
     areaController.dispose();
+    toolsController.dispose();
     super.dispose();
   }
 
