@@ -1,6 +1,6 @@
-﻿# Farm Buddy
+﻿# AgroAssist
 
-Farm Buddy is a full-stack agriculture management platform with a Django REST backend and a Flutter frontend.
+AgroAssist is a full-stack agriculture management platform with a Django REST backend and a Flutter frontend.
 
 It helps manage:
 
@@ -109,7 +109,7 @@ flutter run --release -d web-server --web-hostname 127.0.0.1 --web-port 8088 --d
 5. Validate with local admin login
 
 - Username: `Satyam`
-- Password: `Satyam@123`
+- Password: `AgroAssist@123`
 
 ### Common Startup Issues
 

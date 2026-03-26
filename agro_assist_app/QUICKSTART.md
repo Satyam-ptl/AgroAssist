@@ -1,4 +1,4 @@
-﻿# ðŸš€ Quick Start Guide - Farm Buddy Flutter App
+﻿# ðŸš€ Quick Start Guide - AgroAssist Flutter App
 
 ## Prerequisites Checklist
 
@@ -55,28 +55,18 @@ Got dependencies!
 
 ### 3ï¸âƒ£ Configure API Connection
 
-**Edit:** `lib/services/api_service.dart`
+Pass API URL with `--dart-define` while running the app:
 
-**For Android Emulator (most common):**
-```dart
-static const String baseUrl = 'http://10.0.2.2:8000/api';
+```powershell
+# Android emulator
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api
+
+# Chrome
+flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:8000/api
+
+# Physical device (replace with your IP)
+flutter run --dart-define=API_BASE_URL=http://192.168.1.5:8000/api
 ```
-
-**For iOS Simulator:**
-```dart
-static const String baseUrl = 'http://localhost:8000/api';
-```
-
-**For Physical Device:**
-1. Find your computer's IP:
-   ```powershell
-   ipconfig  # Look for IPv4 Address (e.g., 192.168.1.5)
-   ```
-
-2. Update baseUrl:
-   ```dart
-   static const String baseUrl = 'http://192.168.1.5:8000/api';
-   ```
 
 ### 4ï¸âƒ£ Start Django Backend
 
@@ -178,9 +168,9 @@ $env:Path += ";C:\src\flutter\bin"
 http://localhost:8000/api/crops/
 ```
 
-**Check 3:** Is baseUrl correct in api_service.dart?
+**Check 3:** Is `--dart-define=API_BASE_URL=...` set correctly?
 - Android emulator: `http://10.0.2.2:8000/api` âœ…
-- iOS simulator: `http://localhost:8000/api` âœ…
+- iOS simulator / Chrome: `http://localhost:8000/api` âœ…
 - Physical device: `http://YOUR_IP:8000/api` âœ…
 
 **Check 4:** CORS configured in Django?

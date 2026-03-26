@@ -1,6 +1,6 @@
-﻿# Farm Buddy Flutter App
+﻿# AgroAssist Flutter App
 
-A mobile application for **Farm Buddy - Multi-Crop Growth Assistant** built with Flutter and connected to Django REST API backend.
+A mobile application for **AgroAssist - Multi-Crop Growth Assistant** built with Flutter and connected to a Django REST API backend.
 
 ## ðŸ“± Features
 
@@ -72,17 +72,17 @@ This will download all required packages:
 
 ### Step 3: Configure API URL
 
-Open `lib/services/api_service.dart` and update the `baseUrl`:
+Set API URL using `--dart-define` when launching Flutter:
 
-```dart
-// For Android Emulator (default):
-static const String baseUrl = 'http://10.0.2.2:8000/api';
+```powershell
+# Chrome / local web
+flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:8000/api
 
-// For iOS Simulator:
-static const String baseUrl = 'http://localhost:8000/api';
+# Android emulator
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api
 
-// For Physical Device (replace with your computer's IP):
-static const String baseUrl = 'http://192.168.1.5:8000/api';
+# Physical device (replace with your computer IP)
+flutter run --dart-define=API_BASE_URL=http://192.168.1.5:8000/api
 ```
 
 **To find your computer's IP address:**
@@ -169,9 +169,9 @@ All endpoints are accessible at `http://localhost:8000/api/`:
 | `/api/crops/` | GET | Get all crops |
 | `/api/crops/{id}/` | GET | Get crop details |
 | `/api/crop-guides/` | GET | Get crop guides |
-| `/api/farmers/` | GET, POST | Get/create farmers |
-| `/api/farmers/{id}/` | GET, PUT, PATCH | Get/update farmer |
-| `/api/tasks/` | GET, POST | Get/create tasks |
+| `/api/farmers/` | GET, POST | Get/create farmers (farmer scope applied for non-admin users) |
+| `/api/farmers/{id}/` | GET, PUT, PATCH | Get/update farmer profile |
+| `/api/tasks/` | GET, POST | Get/create tasks (farmer can create for own crops) |
 | `/api/tasks/{id}/` | GET, PUT, PATCH | Get/update task |
 | `/api/weather-data/` | GET | Get weather data |
 | `/api/weather-alerts/` | GET | Get weather alerts |
@@ -199,6 +199,7 @@ All endpoints are accessible at `http://localhost:8000/api/`:
 - List of all tasks with filtering by status
 - Shows task name, farmer, crop, due date, and priority
 - Color-coded status (Pending, In Progress, Completed, Overdue)
+- Farmers can create tasks for their own crop records
 - Mark tasks as completed with one tap
 
 ### Weather Screen

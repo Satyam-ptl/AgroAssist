@@ -1,5 +1,5 @@
 ﻿name: agro_assist_app  # Name of the Flutter application
-description: Farm Buddy - Multi-Crop Growth Assistant mobile app  # App description
+description: AgroAssist - Multi-Crop Growth Assistant mobile app  # App description
 publish_to: 'none'  # Don't publish to pub.dev
 
 version: 1.0.0+1  # App version (semantic versioning)
