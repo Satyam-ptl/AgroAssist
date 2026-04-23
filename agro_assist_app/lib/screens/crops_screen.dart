@@ -30,12 +30,95 @@ class _CropsScreenState extends State<CropsScreen> {
   bool toolsExpanded = false;
   final ExpansibleController toolsController = ExpansibleController();
   final TextEditingController searchController = TextEditingController();
-  final TextEditingController stateController = TextEditingController();
 
-  final List<String> seasons = ['All', 'Kharif', 'Rabi', 'Summer'];
+  final List<String> seasons = [
+    'All',
+    'Kharif',
+    'Rabi',
+    'Zaid',
+  ];
   final List<String> soils = ['All', 'Clay', 'Sandy', 'Loamy', 'Mixed'];
 
-  bool get _canSelectCropForTasks => AuthService.session?.isFarmer == true;
+  static const List<String> _indianStatesAndUts = [
+    'Andhra Pradesh',
+    'Arunachal Pradesh',
+    'Assam',
+    'Bihar',
+    'Chhattisgarh',
+    'Goa',
+    'Gujarat',
+    'Haryana',
+    'Himachal Pradesh',
+    'Jharkhand',
+    'Karnataka',
+    'Kerala',
+    'Madhya Pradesh',
+    'Maharashtra',
+    'Manipur',
+    'Meghalaya',
+    'Mizoram',
+    'Nagaland',
+    'Odisha',
+    'Punjab',
+    'Rajasthan',
+    'Sikkim',
+    'Tamil Nadu',
+    'Telangana',
+    'Tripura',
+    'Uttar Pradesh',
+    'Uttarakhand',
+    'West Bengal',
+  ];
+
+  static const Map<String, String> _stateAliases = {
+    'ap': 'Andhra Pradesh',
+    'ar': 'Arunachal Pradesh',
+    'as': 'Assam',
+    'br': 'Bihar',
+    'cg': 'Chhattisgarh',
+    'ga': 'Goa',
+    'gj': 'Gujarat',
+    'hr': 'Haryana',
+    'hp': 'Himachal Pradesh',
+    'jh': 'Jharkhand',
+    'ka': 'Karnataka',
+    'kl': 'Kerala',
+    'mp': 'Madhya Pradesh',
+    'mh': 'Maharashtra',
+    'mn': 'Manipur',
+    'ml': 'Meghalaya',
+    'mz': 'Mizoram',
+    'nl': 'Nagaland',
+    'od': 'Odisha',
+    'orissa': 'Odisha',
+    'pb': 'Punjab',
+    'rj': 'Rajasthan',
+    'sk': 'Sikkim',
+    'tn': 'Tamil Nadu',
+    'tg': 'Telangana',
+    'ts': 'Telangana',
+    'tr': 'Tripura',
+    'up': 'Uttar Pradesh',
+    'uk': 'Uttarakhand',
+    'ut': 'Uttarakhand',
+    'wb': 'West Bengal',
+    'an': 'Andaman and Nicobar Islands',
+    'ch': 'Chandigarh',
+    'dn': 'Dadra and Nagar Haveli and Daman and Diu',
+    'dd': 'Dadra and Nagar Haveli and Daman and Diu',
+    'dl': 'Delhi',
+    'jk': 'Jammu and Kashmir',
+    'la': 'Ladakh',
+    'ld': 'Lakshadweep',
+    'py': 'Puducherry',
+    'pondicherry': 'Puducherry',
+  };
+
+  static const Map<String, String> _seasonApiMapping = {'Zaid': 'Summer'};
+
+  bool get _canSelectCropForTasks =>
+      AuthService.session?.isFarmer == true &&
+      AuthService.session?.farmerId != null;
 
   @override
   void initState() {
@@ -52,7 +135,7 @@ class _CropsScreenState extends State<CropsScreen> {
     try {
       final futures = <Future<Object>>[
         ApiService.getCrops(
-          season: selectedSeason == 'All' ? null : selectedSeason,
+          season: _seasonQueryValue(selectedSeason),
           soilType: selectedSoil == 'All' ? null : selectedSoil,
           state: selectedState.isEmpty ? null : selectedState,
           search: searchQuery.isEmpty ? null : searchQuery,
@@ -132,7 +215,7 @@ class _CropsScreenState extends State<CropsScreen> {
 
     try {
       final recs = await ApiService.getCropRecommendations(
-        selectedSeason,
+        _seasonQueryValue(selectedSeason) ?? selectedSeason,
         soilType: selectedSoil == 'All' ? null : selectedSoil,
         state: selectedState.isEmpty ? null : selectedState,
       );
@@ -284,25 +367,22 @@ class _CropsScreenState extends State<CropsScreen> {
                                       },
                                     ),
                                     const SizedBox(height: 8),
-                                    TextField(
-                                      controller: stateController,
-                                      decoration: InputDecoration(
+                                    DropdownButtonFormField<String>(
+                                      initialValue: selectedState.isEmpty
+                                          ? _allStatesValue
+                                          : selectedState,
+                                      decoration: const InputDecoration(
                                         hintText: 'Filter by state',
-                                        prefixIcon: const Icon(Icons.location_on_outlined),
-                                        suffixIcon: selectedState.isNotEmpty
-                                            ? IconButton(
-                                                icon: const Icon(Icons.close),
-                                                onPressed: () {
-                                                  stateController.clear();
-                                                  setState(() => selectedState = '');
-                                                  loadCrops();
-                                                },
-                                              )
-                                            : null,
+                                        prefixIcon: Icon(Icons.location_on_outlined),
                                         isDense: true,
                                       ),
-                                      onSubmitted: (value) {
-                                        setState(() => selectedState = value.trim());
+                                      items: _stateDropdownItems,
+                                      onChanged: (value) {
+                                        if (value == null) return;
+                                        setState(() {
+                                          selectedState =
+                                              value == _allStatesValue ? '' : value;
+                                        });
                                         loadCrops();
                                       },
                                     ),
@@ -312,7 +392,6 @@ class _CropsScreenState extends State<CropsScreen> {
                                       child: FilledButton(
                                         onPressed: () {
                                           setState(() {
-                                            selectedState = stateController.text.trim();
                                             searchQuery = searchController.text.trim();
                                           });
                                           loadCrops();
@@ -352,25 +431,22 @@ class _CropsScreenState extends State<CropsScreen> {
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                    child: TextField(
-                                      controller: stateController,
-                                      decoration: InputDecoration(
+                                    child: DropdownButtonFormField<String>(
+                                      initialValue: selectedState.isEmpty
+                                          ? _allStatesValue
+                                          : selectedState,
+                                      decoration: const InputDecoration(
                                         hintText: 'Filter by state',
-                                        prefixIcon: const Icon(Icons.location_on_outlined),
-                                        suffixIcon: selectedState.isNotEmpty
-                                            ? IconButton(
-                                                icon: const Icon(Icons.close),
-                                                onPressed: () {
-                                                  stateController.clear();
-                                                  setState(() => selectedState = '');
-                                                  loadCrops();
-                                                },
-                                              )
-                                            : null,
+                                        prefixIcon: Icon(Icons.location_on_outlined),
                                         isDense: true,
                                       ),
-                                      onSubmitted: (value) {
-                                        setState(() => selectedState = value.trim());
+                                      items: _stateDropdownItems,
+                                      onChanged: (value) {
+                                        if (value == null) return;
+                                        setState(() {
+                                          selectedState =
+                                              value == _allStatesValue ? '' : value;
+                                        });
                                         loadCrops();
                                       },
                                     ),
@@ -379,7 +455,6 @@ class _CropsScreenState extends State<CropsScreen> {
                                   FilledButton(
                                     onPressed: () {
                                       setState(() {
-                                        selectedState = stateController.text.trim();
                                         searchQuery = searchController.text.trim();
                                       });
                                       loadCrops();
@@ -399,7 +474,6 @@ class _CropsScreenState extends State<CropsScreen> {
                                 OutlinedButton.icon(
                                   onPressed: () {
                                     searchController.clear();
-                                    stateController.clear();
                                     setState(() {
                                       selectedSeason = 'All';
                                       selectedSoil = 'All';
@@ -711,6 +785,19 @@ class _CropsScreenState extends State<CropsScreen> {
 
   Future<void> _showSelectCropForTasksDialog(Crop crop) async {
     final messenger = ScaffoldMessenger.of(context);
+    final farmerId = AuthService.session?.farmerId;
+
+    if (farmerId == null) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Your account is not linked to a farmer profile yet. Please contact admin.',
+          ),
+        ),
+      );
+      return;
+    }
+
     final areaController = TextEditingController(text: '1.0');
     DateTime plantingDate = DateTime.now();
     String selectedStatus = 'Growing';
@@ -808,6 +895,7 @@ class _CropsScreenState extends State<CropsScreen> {
 
                     try {
                       await ApiService.createFarmerCrop({
+                        'farmer': farmerId,
                         'crop': crop.id,
                         'planting_date': _formatDateForApi(plantingDate),
                         'expected_harvest_date': _formatDateForApi(
@@ -838,7 +926,11 @@ class _CropsScreenState extends State<CropsScreen> {
                       );
                       if (handled) return;
                       messenger.showSnackBar(
-                        SnackBar(content: Text('Could not add crop: $e')),
+                        SnackBar(
+                          content: Text(
+                            'Could not add crop. ${e.toString().replaceFirst('Exception: ', '')}',
+                          ),
+                        ),
                       );
                     }
                   },
@@ -959,16 +1051,60 @@ class _CropsScreenState extends State<CropsScreen> {
                   ),
                   const SizedBox(height: 6),
                   ...commonMistakes.map(
-                    (mistake) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('GÇó '),
-                          Expanded(child: Text(mistake)),
-                        ],
-                      ),
-                    ),
+                    (mistake) {
+                      final riskLevel = mistake['risk'] as String? ?? 'MEDIUM';
+                      final riskColor = riskLevel == 'CRITICAL' 
+                          ? Colors.red 
+                          : riskLevel == 'HIGH' 
+                              ? Colors.orange 
+                              : Colors.yellow;
+                      
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              left: BorderSide(
+                                color: riskColor,
+                                width: 4,
+                              ),
+                            ),
+                            color: riskColor.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Chip(
+                                    label: Text(
+                                      riskLevel,
+                                      style: const TextStyle(fontSize: 11),
+                                    ),
+                                    backgroundColor: riskColor,
+                                    labelStyle: const TextStyle(color: Colors.white),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      mistake['mistake'] as String,
+                                      style: const TextStyle(fontWeight: FontWeight.w500),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Action: ${mistake['action']}',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -1005,15 +1141,13 @@ class _CropsScreenState extends State<CropsScreen> {
   @override
   void dispose() {
     searchController.dispose();
-    stateController.dispose();
     areaController.dispose();
     toolsController.dispose();
     super.dispose();
   }
 
   bool _matchesSelectedFilters(Crop crop) {
-    final seasonMatches =
-        selectedSeason == 'All' || crop.season == selectedSeason;
+    final seasonMatches = _isSeasonMatch(crop.season, selectedSeason);
     final soilMatches = selectedSoil == 'All' || crop.soilType == selectedSoil;
 
     if (!seasonMatches || !soilMatches) {
@@ -1033,9 +1167,66 @@ class _CropsScreenState extends State<CropsScreen> {
       return true;
     }
 
-    final stateNormalized = selectedState.trim().toLowerCase();
+    final stateNormalized = _normalizeStateInput(selectedState).toLowerCase();
     final description = (crop.description ?? '').toLowerCase();
-    return description.contains(stateNormalized);
+    if (description.contains(stateNormalized)) {
+      return true;
+    }
+
+    final aliases = _stateAliases.entries
+        .where((entry) => entry.value.toLowerCase() == stateNormalized)
+        .map((entry) => entry.key)
+        .toList();
+    return aliases.any((alias) => description.contains(alias.toLowerCase()));
+  }
+
+  String? _seasonQueryValue(String season) {
+    if (season == 'All') return null;
+    return _seasonApiMapping[season] ?? season;
+  }
+
+  bool _isSeasonMatch(String cropSeason, String selected) {
+    if (selected == 'All') return true;
+
+    final selectedApi = _seasonQueryValue(selected);
+    if (selectedApi == null) return true;
+
+    final normalizedCrop = cropSeason.trim().toLowerCase();
+    return normalizedCrop == selectedApi.toLowerCase();
+  }
+
+  String _normalizeStateInput(String raw) {
+    final input = raw.trim();
+    if (input.isEmpty) return '';
+
+    final lower = input.toLowerCase();
+    final alias = _stateAliases[lower];
+    if (alias != null) return alias;
+
+    for (final state in _indianStatesAndUts) {
+      if (state.toLowerCase() == lower) {
+        return state;
+      }
+    }
+
+    return input;
+  }
+
+  static const String _allStatesValue = '__ALL_STATES__';
+
+  List<DropdownMenuItem<String>> get _stateDropdownItems {
+    return [
+      const DropdownMenuItem<String>(
+        value: _allStatesValue,
+        child: Text('All Indian States'),
+      ),
+      ..._indianStatesAndUts.map(
+        (state) => DropdownMenuItem<String>(
+          value: state,
+          child: Text(state),
+        ),
+      ),
+    ];
   }
 
   Widget _buildInputCalculatorCard() {
@@ -1159,23 +1350,167 @@ class _CropsScreenState extends State<CropsScreen> {
                       '${stageDays[index]} d',
                       style: const TextStyle(fontSize: 11),
                     ),
+                    if (_getStageTasks(labels[index]).isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        _getStageTasks(labels[index]).first,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 9, height: 1.2),
+                      ),
+                    ]
                   ],
                 ),
               ),
             );
           }),
         ),
+        const SizedBox(height: 8),
+        _buildStageTasks(crop),
       ],
     );
   }
 
-  List<String> _getCommonMistakes(Crop crop) {
+  /// Returns common mistakes with risk levels and preventive actions
+  /// Enhanced to provide actionable guidance for farmers
+  List<Map<String, dynamic>> _getCommonMistakes(Crop crop) {
     return [
-      'Late sowing for ${crop.season} season can reduce yield.',
-      'Over-watering beyond ${crop.waterRequiredMmPerWeek.toStringAsFixed(0)} mm/week may damage roots.',
-      'Ignoring soil type mismatch (recommended: ${crop.soilType}) lowers performance.',
-      'Skipping balanced fertilizer schedule can delay growth stages.',
+      {
+        'mistake': 'Late sowing for ${crop.season} season can reduce yield by 20-30%.',
+        'risk': 'HIGH',
+        'action': 'Follow recommended sowing window for ${crop.season}. Set task reminder 2 weeks before sowing date.',
+        'impact': 'Directly affects yield and growth duration',
+      },
+      {
+        'mistake': 'Over-watering beyond ${crop.waterRequiredMmPerWeek.toStringAsFixed(0)} mm/week causes root damage and fungal disease.',
+        'risk': 'HIGH',
+        'action': 'Use drip irrigation. Check soil moisture before watering. Follow watering schedule task reminders.',
+        'impact': 'Damages root system and increases disease risk',
+      },
+      {
+        'mistake': 'Ignoring soil type mismatch (recommended: ${crop.soilType}) reduces nutrient absorption.',
+        'risk': 'MEDIUM',
+        'action': 'Test soil before planting. Amend soil with organic matter if needed.',
+        'impact': 'Reduces fertility and crop performance by 15-20%',
+      },
+      {
+        'mistake': 'Skipping balanced fertilizer schedule delays growth stages and reduces yield.',
+        'risk': 'MEDIUM',
+        'action': 'Create fertilizer tasks at key growth stages. Use ${crop.fertilizerRequired} as recommended.',
+        'impact': 'Extends growth cycle and reduces final yield',
+      },
+      {
+        'mistake': 'Ignoring pest/disease symptoms during vegetative stage causes widespread loss.',
+        'risk': 'CRITICAL',
+        'action': 'Scout crops twice weekly. Apply preventive pesticide/fungicide at first sign.',
+        'impact': 'Can destroy entire crop if not addressed early',
+      },
     ];
+  }
+
+  /// Get key tasks for each growth stage
+  List<String> _getStageTasks(String stage) {
+    const stageTasks = {
+      'Sowing': ['Prepare field', 'Sow seeds'],
+      'Vegetative': ['Apply fertilizer', 'Weed control'],
+      'Flowering': ['Monitor pests', 'Ensure water'],
+      'Harvest': ['Check ripeness', 'Harvest'],
+    };
+    return stageTasks[stage] ?? [];
+  }
+
+  /// Build detailed task list for each growth stage
+  Widget _buildStageTasks(Crop crop) {
+    final stages = [
+      {
+        'name': 'Sowing',
+        'tasks': [
+          'Prepare field by removing weeds',
+          'Apply base fertilizer to soil',
+          'Sow seeds at recommended depth and spacing',
+          'Provide initial irrigation',
+        ]
+      },
+      {
+        'name': 'Vegetative',
+        'tasks': [
+          'Apply nitrogen-rich fertilizer every 3-4 weeks',
+          'Perform weed control 2-3 times',
+          'Monitor for early pest/disease symptoms',
+          'Provide consistent irrigation',
+        ]
+      },
+      {
+        'name': 'Flowering',
+        'tasks': [
+          'Reduce excessive nitrogen application',
+          'Monitor pollinator activity',
+          'Scout for flower-feeding pests daily',
+          'Maintain soil moisture at flowering stage',
+        ]
+      },
+      {
+        'name': 'Harvest',
+        'tasks': [
+          'Monitor crop maturity indicators',
+          'Reduce irrigation 2 weeks before harvest',
+          'Harvest at optimal ripeness',
+          'Handle carefully to minimize damage',
+        ]
+      },
+    ];
+
+    return ExpansionTile(
+      title: const Text(
+        'Stage-wise care tasks',
+        style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+      ),
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: stages
+                .map((stage) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            stage['name'] as String,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          ...(stage['tasks'] as List<String>)
+                              .map((task) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 4),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('• ',
+                                            style: TextStyle(fontSize: 12)),
+                                        Expanded(
+                                          child: Text(
+                                            task,
+                                            style:
+                                                const TextStyle(fontSize: 12),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ))
+                              .toList(),
+                        ],
+                      ),
+                    ))
+                .toList(),
+          ),
+        ),
+      ],
+    );
   }
 
   void _showCropComparison() {
@@ -1206,14 +1541,22 @@ class _CropsScreenState extends State<CropsScreen> {
               final crop = item['crop'] as Crop;
               final score = item['score'] as double;
               final isBest = identical(item, comparison.first);
+              
+              // Calculate additional metrics
+              final riskLevel = _calculateCropRisk(crop);
+              final profitabilityIndex = (crop.expectedYieldPerHectare * 1.5) / (crop.growthDurationDays / 30);
 
               return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(10),
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: isBest
                       ? Colors.green.withValues(alpha: 0.12)
                       : Colors.grey.withValues(alpha: 0.08),
+                  border: Border.all(
+                    color: isBest ? Colors.green : Colors.grey,
+                    width: isBest ? 2 : 1,
+                  ),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Column(
@@ -1224,23 +1567,47 @@ class _CropsScreenState extends State<CropsScreen> {
                         Expanded(
                           child: Text(
                             crop.name,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
                         if (isBest)
-                          const Chip(
-                            label: Text('Best fit'),
-                            backgroundColor: Colors.greenAccent,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'Best fit',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
+                            ),
                           ),
                       ],
                     ),
-                    Text('Suitability score: ${score.toStringAsFixed(1)}'),
-                    Text('Season: ${crop.season} | Soil: ${crop.soilType}'),
+                    const SizedBox(height: 8),
+                    _buildComparisonRow('Suitability', '${score.toStringAsFixed(1)}/10', Colors.blue),
+                    _buildComparisonRow('Risk Level', riskLevel, _getRiskColor(riskLevel)),
+                    _buildComparisonRow('Profitability', '${profitabilityIndex.toStringAsFixed(1)}x', Colors.orange),
+                    const SizedBox(height: 6),
                     Text(
-                        'Water: ${crop.waterRequiredMmPerWeek.toStringAsFixed(0)} mm/week'),
-                    Text('Duration: ${crop.growthDurationDays} days'),
+                      'Season: ${crop.season} | Soil: ${crop.soilType}',
+                      style: const TextStyle(fontSize: 11),
+                    ),
                     Text(
-                        'Yield: ${crop.expectedYieldPerHectare.toStringAsFixed(0)} kg/ha'),
+                      'Water: ${crop.waterRequiredMmPerWeek.toStringAsFixed(0)} mm/wk | Duration: ${crop.growthDurationDays}d',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    Text(
+                      'Yield: ${crop.expectedYieldPerHectare.toStringAsFixed(0)} kg/ha',
+                      style: const TextStyle(fontSize: 11),
+                    ),
                   ],
                 ),
               );
@@ -1255,6 +1622,61 @@ class _CropsScreenState extends State<CropsScreen> {
         ],
       ),
     );
+  }
+
+  /// Build a comparison metric row with color coding
+  Widget _buildComparisonRow(String label, String value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: color,
+                fontSize: 11,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Calculate risk level based on crop water and duration requirements
+  String _calculateCropRisk(Crop crop) {
+    if (crop.waterRequiredMmPerWeek > 80 || crop.growthDurationDays > 150) {
+      return 'HIGH';
+    } else if (crop.waterRequiredMmPerWeek > 50 || crop.growthDurationDays > 100) {
+      return 'MEDIUM';
+    }
+    return 'LOW';
+  }
+
+  /// Get risk color for display
+  Color _getRiskColor(String risk) {
+    switch (risk) {
+      case 'HIGH':
+        return Colors.red;
+      case 'MEDIUM':
+        return Colors.orange;
+      case 'LOW':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
   }
 
   double _calculateSuitabilityScore(Crop crop, List<Crop> selectedCrops) {

@@ -137,9 +137,6 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-
-
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
@@ -150,16 +147,35 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # CORS (Cross-Origin Resource Sharing) allows Flutter app to connect to Django API
 
 # Allow all origins only when explicitly enabled (or by default in debug mode).
-cors_allow_all_default = 'True' if DEBUG else 'False'
+cors_allow_all_default = 'True' if DEBUG else 'True'  # Default to True for local development
 CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', cors_allow_all_default).lower() == 'true'
+
+local_dev_origins = [
+    'http://127.0.0.1:8088',
+    'http://127.0.0.1:8089',
+    'http://127.0.0.1:8091',
+    'http://127.0.0.1:8092',
+    'http://127.0.0.1:19294',  # Flutter web default port
+    'http://127.0.0.1:19295',  # Alternate Flutter web port
+    'http://localhost:8088',
+    'http://localhost:8089',
+    'http://localhost:8091',
+    'http://localhost:8092',
+    'http://localhost:19294',
+    'http://localhost:19295',
+]
 
 cors_allowed_origins_env = os.getenv('CORS_ALLOWED_ORIGINS', '')
 if cors_allowed_origins_env:
     CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_allowed_origins_env.split(',') if origin.strip()]
+else:
+    CORS_ALLOWED_ORIGINS = local_dev_origins
 
 csrf_trusted_origins_env = os.getenv('CSRF_TRUSTED_ORIGINS', '')
 if csrf_trusted_origins_env:
     CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_trusted_origins_env.split(',') if origin.strip()]
+else:
+    CSRF_TRUSTED_ORIGINS = local_dev_origins
 
 # For production, use specific origins instead:
 # CORS_ALLOWED_ORIGINS = [

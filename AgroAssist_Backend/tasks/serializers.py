@@ -23,8 +23,26 @@ class FarmerTaskSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at', 'farmer_name', 'crop_name', 
                            'days_remaining', 'is_overdue']  # Can't edit these
         extra_kwargs = {
-            'farmer': {'required': False},
+            'farmer': {'required': False, 'allow_null': True},
+            'task_name': {'required': True, 'min_length': 3},
+            'task_description': {'required': True, 'min_length': 5},
+            'due_date': {'required': True},
+            'farmer_crop': {'required': True},
         }
+    
+    def validate_due_date(self, value):
+        """Validate that due_date is in proper format and in the future."""
+        from datetime import datetime
+        today = datetime.now().date()
+        if value < today:
+            raise serializers.ValidationError("Due date must be today or in the future.")
+        return value
+    
+    def validate_priority(self, value):
+        """Validate priority is in valid range."""
+        if not (1 <= value <= 10):
+            raise serializers.ValidationError("Priority must be between 1 and 10.")
+        return value
     
     def get_farmer_name(self, obj):
         # Returns farmer's full name

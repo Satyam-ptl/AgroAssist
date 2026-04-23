@@ -383,7 +383,7 @@ class _TasksScreenState extends State<TasksScreen> {
                       'task_description': descController.text.trim().isEmpty
                           ? 'Task created from AgroAssist app.'
                           : descController.text.trim(),
-                      'due_date': dueDate!.toIso8601String(),
+                      'due_date': '${dueDate!.year.toString().padLeft(4, '0')}-${dueDate!.month.toString().padLeft(2, '0')}-${dueDate!.day.toString().padLeft(2, '0')}',
                       'priority': selectedPriority,
                       'importance': selectedImportance,
                       'status': 'Pending',
@@ -473,6 +473,36 @@ class _TasksScreenState extends State<TasksScreen> {
                 style: TextStyle(color: colorScheme.onSurfaceVariant),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            // Show reminder indicator
+            if (task.status != 'Completed' && task.status != 'Cancelled') ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.blue.shade300),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.notifications_active, 
+                      size: 14, 
+                      color: Colors.blue.shade700
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Reminders set',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ],

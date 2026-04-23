@@ -1,8 +1,12 @@
 # Tasks API ViewSets - Task management for farmers
+from datetime import timedelta
+
 from rest_framework import viewsets, filters
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from django.utils import timezone
+
 from .models import FarmerTask, TaskReminder, TaskLog
 from .serializers import FarmerTaskSerializer, TaskReminderSerializer, TaskLogSerializer
 from AgroAssist_Backend.farmers.models import Farmer
@@ -10,6 +14,55 @@ from AgroAssist_Backend.farmers.models import Farmer
 
 def _linked_farmer_for_user(user):
     return Farmer.objects.filter(email__iexact=user.email).first()
+
+
+def _build_reminder_message(task, days_before):
+    if days_before <= 0:
+        return (
+            f"Today's task: {task.task_name} for {task.farmer_crop.crop.name}. "
+            f"Please complete it by end of day."
+        )
+
+    day_text = 'day' if days_before == 1 else 'days'
+    return (
+        f"Upcoming task in {days_before} {day_text}: {task.task_name} "
+        f"for {task.farmer_crop.crop.name} due on {task.due_date}."
+    )
+
+
+def _sync_task_reminders(task):
+    """Create/update date-based in-app reminders for the task due date."""
+    today = timezone.localdate()
+    reminder_offsets = [3, 1, 0]
+    expected_dates = set()
+
+    for days_before in reminder_offsets:
+        reminder_date = task.due_date - timedelta(days=days_before)
+        if reminder_date < today:
+            continue
+
+        expected_dates.add(reminder_date)
+        TaskReminder.objects.update_or_create(
+            task=task,
+            reminder_channel='App',
+            reminder_date=reminder_date,
+            defaults={
+                'reminder_message': _build_reminder_message(task, days_before),
+            },
+        )
+
+    TaskReminder.objects.filter(task=task, reminder_channel='App').exclude(
+        reminder_date__in=expected_dates,
+    ).delete()
+
+
+def _refresh_overdue_tasks(queryset):
+    """Ensure pending/in-progress tasks are marked overdue after due date."""
+    today = timezone.localdate()
+    queryset.filter(
+        is_completed=False,
+        due_date__lt=today,
+    ).exclude(status='Overdue').update(status='Overdue')
 
 class StandardPagination(PageNumberPagination):
     page_size = 20  # Show 20 results per page
@@ -36,6 +89,8 @@ class FarmerTaskViewSet(viewsets.ModelViewSet):
         """Scope tasks: admins see all, farmers see only their assigned tasks."""
         user = self.request.user
         queryset = FarmerTask.objects.all()
+
+        _refresh_overdue_tasks(queryset)
         
         # Admins see all tasks
         if user.is_staff or user.is_superuser:
@@ -58,10 +113,12 @@ class FarmerTaskViewSet(viewsets.ModelViewSet):
             farmer_crop = serializer.validated_data.get('farmer_crop')
 
             if farmer is None and farmer_crop is not None:
-                serializer.save(farmer=farmer_crop.farmer)
+                task = serializer.save(farmer=farmer_crop.farmer)
+                _sync_task_reminders(task)
                 return
 
-            serializer.save()
+            task = serializer.save()
+            _sync_task_reminders(task)
             return
 
         # Farmers can create only for their own profile and own crop records.
@@ -76,7 +133,12 @@ class FarmerTaskViewSet(viewsets.ModelViewSet):
         if farmer_crop.farmer_id != farmer.id:
             raise PermissionDenied('You can only create tasks for your own crops.')
 
-        serializer.save(farmer=farmer)
+        task = serializer.save(farmer=farmer)
+        _sync_task_reminders(task)
+
+    def perform_update(self, serializer):
+        task = serializer.save()
+        _sync_task_reminders(task)
 
 # Task Reminder ViewSet - Notifications for tasks
 class TaskReminderViewSet(viewsets.ModelViewSet):
