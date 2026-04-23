@@ -28,9 +28,10 @@ jobs:
           python -m pip install -r requirements.txt
 
       - name: Run migrations
-        working-directory: backend
-        run: |
-          python manage.py migrate --noinput
+  env:
+    SECRET_KEY: ${{ secrets.SECRET_KEY }}
+    DEBUG: ${{ secrets.DEBUG }}
+  run: python manage.py migrate --noinput
 
       - name: Run backend tests
         working-directory: backend
