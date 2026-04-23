@@ -1,7 +1,0 @@
-Django==6.0.3
-djangorestframework==3.16.1
-django-cors-headers==4.9.0
-
-# Optional packages (install only if needed)
-# Pillow>=10.0.0
-# mysqlclient>=2.2.0

@@ -1,0 +1,60 @@
+﻿name: agro_assist_app  # Name of the Flutter application
+description: AgroAssist - Multi-Crop Growth Assistant mobile app  # App description
+publish_to: 'none'  # Don't publish to pub.dev
+
+version: 1.0.0+1  # App version (semantic versioning)
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'  # Dart SDK version constraint
+
+dependencies:
+  flutter:
+    sdk: flutter  # Flutter framework from SDK
+  
+  # HTTP client for making API calls to Django backend
+  http: ^1.1.0  # For REST API communication
+  
+  # State management
+  provider: ^6.1.1  # For managing app state across screens
+  
+  # UI and utilities
+  cupertino_icons: ^1.0.2  # iOS style icons
+  intl: ^0.18.1  # For date formatting and internationalization
+  google_fonts: ^6.1.0
+  shimmer: ^3.0.0
+  cached_network_image: ^3.3.0
+  flutter_svg: ^2.0.9
+  connectivity_plus: ^5.0.2
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  
+  # Local storage (if needed for caching)
+  shared_preferences: ^2.2.2  # For storing user preferences locally
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter  # Testing framework
+  
+  flutter_lints: ^3.0.0  # Linting rules for better code quality
+  flutter_native_splash: ^2.3.10
+
+flutter:
+  uses-material-design: true  # Enable Material Design icons and components
+  
+  # Add assets (images, fonts) here if needed
+  # assets:
+  #   - images/logo.png
+  
+  # Uncomment to add custom fonts
+  # fonts:
+  #   - family: Roboto
+  #     fonts:
+  #       - asset: fonts/Roboto-Regular.ttf
+
+flutter_native_splash:
+  color: "#2E7D32"
+  color_dark: "#2E7D32"
+  android: true
+  ios: true
+  web: false
+

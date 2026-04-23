@@ -1,127 +1,140 @@
 ﻿# AgroAssist
 
-AgroAssist is a full-stack agriculture management platform with a Django REST backend and a Flutter frontend.
+[![CI](https://img.shields.io/github/actions/workflow/status/Satyam-ptl/AgroAssist/django.yml?branch=main)](https://github.com/Satyam-ptl/AgroAssist/actions)
+[![Python](https://img.shields.io/badge/Python-3.11-blue)](https://www.python.org/)
+[![Flutter](https://img.shields.io/badge/Flutter-stable-02569B)](https://flutter.dev/)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-It helps manage:
+AgroAssist is a full-stack agriculture management platform with a Django REST backend and a Flutter frontend. It helps manage crops, farmers, farm tasks, weather alerts, reminders, and admin workflows in one place.
 
-- Crops and cultivation guidance
-- Farmers and farmer profiles
-- Farm tasks and priorities
-- Weather alerts and advisories
+## Overview
 
-## Repository Layout
+The repository is organized into three main areas:
 
-- `AgroAssist_Backend/`: Django project and apps (`crops`, `farmers`, `tasks`, `weather`)
-- `agro_assist_app/`: Flutter client app
-- `import_templates/`: CSV templates for bulk import
-- `requirements.txt`: backend dependencies
-- `manage.py`: Django entry point
+- `backend/` for the Django project, API, database config, and deployment files
+- `frontend/` for the Flutter app
+- `docs/` for setup and project guides
 
-## Core Features
+## Features
 
-- REST API for all major farm operations
-- Role-aware workflows (admin and farmer)
-- Task lifecycle tracking with validation
-- Crop filtering and recommendations
-- Weather alerts and summaries
-- Token-based authentication
-- Session-expiry handling in Flutter (`401/403` auto logout)
+- Token-based authentication for admin and farmer roles
+- Crop, farmer, task, and weather management APIs
+- Pagination, filtering, validation, and role-based permissions
+- Reminder generation for farm tasks
+- Cross-platform Flutter UI for web and Android
+- Docker and GitHub Actions support
 
 ## Tech Stack
 
 - Backend: Python, Django, Django REST Framework
 - Frontend: Flutter, Dart
-- Database: SQLite (default)
+- Database: SQLite by default, PostgreSQL via `DATABASE_URL`
+- CI/CD: GitHub Actions
+- Containerization: Docker and Docker Compose
 
-## Quick Start
+## Folder Structure
 
-### 1. Backend
-
-```powershell
-cd D:\git\AgroAssist
-d:\git\.venv\Scripts\python.exe manage.py check
-d:\git\.venv\Scripts\python.exe manage.py migrate
-d:\git\.venv\Scripts\python.exe manage.py runserver 0.0.0.0:8000
+```text
+AgroAssist/
+├── backend/
+│   ├── AgroAssist_Backend/
+│   ├── api/
+│   ├── import_templates/
+│   ├── manage.py
+│   ├── requirements.txt
+│   ├── vercel.json
+│   ├── Dockerfile
+│   └── .env.example
+├── frontend/
+│   └── agro_assist_app/
+├── docs/
+├── .github/
+├── .gitignore
+├── docker-compose.yml
+└── README.md
 ```
 
-### 2. Frontend
+## Setup
+
+### Prerequisites
+
+- Python 3.11 or newer
+- Flutter stable channel
+- Git
+- Optional: Docker Desktop for containerized PostgreSQL
+
+### Backend Setup
 
 ```powershell
-cd D:\git\AgroAssist\agro_assist_app
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
+```
+
+### Frontend Setup
+
+```powershell
+cd frontend/agro_assist_app
 flutter pub get
-flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:8000/api
+flutter run
 ```
 
-## API Base URL
+### Docker Setup
 
-Flutter reads API URL from `--dart-define`:
+```powershell
+docker compose up --build
+```
 
-- key: `API_BASE_URL`
-- default: `http://localhost:8000/api`
+The Django service uses the PostgreSQL container and reads environment values from `backend/.env`.
 
-For Android emulator use:
+## Environment Files
 
-- `http://10.0.2.2:8000/api`
+- `backend/.env` is local only and should never be committed
+- `backend/.env.example` is committed and contains placeholder values
+- `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`, and `DATABASE_URL` are loaded from environment variables
+
+## API Docs
+
+- Backend project summary: `docs/PROJECT_SUMMARY.md`
+- Beginner guide: `docs/BEGINNER_FILE_GUIDE.md`
+- Change log: `docs/CHANGES_SUMMARY.md`
+- CSV import guide: `docs/CSV_IMPORT_GUIDE.md`
+- Flutter integration notes: `docs/FLUTTER_DJANGO_INTEGRATION.md`
+- Implementation notes: `docs/IMPLEMENTATION_COMPLETE.md`
+- Quick start: `docs/QUICK_START.md`
+- Technical integration: `docs/TECHNICAL_INTEGRATION.md`
 
 ## Development Checks
 
 ```powershell
 # Backend
-cd D:\git\AgroAssist
-d:\git\.venv\Scripts\python.exe manage.py check
+cd backend
+python manage.py check
+python manage.py test AgroAssist_Backend.crops AgroAssist_Backend.farmers AgroAssist_Backend.tasks AgroAssist_Backend.weather
 
 # Frontend
-cd D:\git\AgroAssist\agro_assist_app
+cd frontend/agro_assist_app
 flutter analyze
 flutter test
 ```
 
-## Run Checklist (Backend + Flutter)
+## Security Notes
 
-Use this checklist when starting the project from scratch or after switching branches.
+- Do not commit real secrets or credentials
+- Use `createsuperuser` instead of shared admin credentials
+- Keep `db.sqlite3` out of version control
 
-1. Start backend first (port `8000`)
+## Contributing
 
-```powershell
-cd D:\git\AgroAssist
-d:\git\.venv\Scripts\python.exe manage.py check
-d:\git\.venv\Scripts\python.exe manage.py migrate
-d:\git\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8000
-```
+1. Create a branch for your work
+2. Make focused changes
+3. Run the relevant backend or Flutter checks
+4. Open a pull request
 
-2. Verify backend is reachable
+## License
 
-- Health/API check: `http://127.0.0.1:8000/api/`
-- Auth route check: `http://127.0.0.1:8000/api/auth/login/`
-
-3. Start Flutter app (port `8088` recommended)
-
-```powershell
-cd D:\git\AgroAssist\agro_assist_app
-flutter pub get
-flutter run --release -d web-server --web-hostname 127.0.0.1 --web-port 8088 --dart-define=API_BASE_URL=http://127.0.0.1:8000/api
-```
-
-4. Open app URL
-
-- `http://127.0.0.1:8088/`
-
-5. Validate with local admin login
-
-- Username: `Satyam`
-- Password: `AgroAssist@123`
-
-### Common Startup Issues
-
-- If `8088` is already in use, stop the existing process or change `--web-port`.
-- If login fails with `404` on `/api/auth/login/`, ensure you started backend from `D:\git\AgroAssist` (not another folder).
-- If Flutter web debug crashes with DDS/WebSocket errors, run with `--release` as shown above.
-
-## Documentation
-
-- `PROJECT_SUMMARY.md`: architecture and system summary
-- `BEGINNER_FILE_GUIDE.md`: beginner-friendly file explanations
-- `agro_assist_app/README.md`: Flutter app documentation
-- `agro_assist_app/INSTALLATION.md`: frontend setup details
-- `agro_assist_app/QUICKSTART.md`: fast startup commands
-
+This project is released under the MIT License.
