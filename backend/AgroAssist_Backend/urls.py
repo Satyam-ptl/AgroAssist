@@ -13,6 +13,7 @@ from AgroAssist_Backend.crops.views import (CropViewSet, CropGuideViewSet,
 from AgroAssist_Backend.farmers.views import FarmerViewSet, FarmerCropViewSet, FarmerInventoryViewSet
 from AgroAssist_Backend.weather.views import WeatherDataViewSet, FarmersWeatherAlertViewSet, WeatherForecastViewSet
 from AgroAssist_Backend.tasks.views import FarmerTaskViewSet, TaskReminderViewSet, TaskLogViewSet
+from AgroAssist_Backend.api.views import dashboard_stats
 
 # CREATE ROUTER - Automatically generates URLs for viewsets
 router = DefaultRouter()
@@ -32,6 +33,7 @@ router.register(r'inventory', FarmerInventoryViewSet, basename='inventory')  # /
 # REGISTER WEATHER APP VIEWSETS
 router.register(r'weather-data', WeatherDataViewSet, basename='weather-data')  # /api/weather-data/
 router.register(r'weather-alerts', FarmersWeatherAlertViewSet, basename='weather-alerts')  # /api/weather-alerts/
+router.register(r'weather', FarmersWeatherAlertViewSet, basename='weather')  # /api/weather/
 router.register(r'weather-forecast', WeatherForecastViewSet, basename='weather-forecast')  # /api/weather-forecast/
 
 # REGISTER TASKS APP VIEWSETS
@@ -52,4 +54,5 @@ urlpatterns = [
     # - /api/crops/{id}/by_season/ (custom action)
     # - /api/crops/{id}/recommendations/ (custom action)
     # And same for all other registered viewsets
+    path('api/dashboard/stats/', dashboard_stats),
     path('api/', include(router.urls)),]

@@ -2,6 +2,8 @@
 from rest_framework import viewsets, filters
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from django.db.models import Q
+from django.utils import timezone
 from .models import WeatherData, FarmersWeatherAlert, WeatherForecast
 from .serializers import WeatherDataSerializer, FarmersWeatherAlertSerializer, WeatherForecastSerializer
 from AgroAssist_Backend.farmers.models import Farmer
@@ -36,7 +38,7 @@ class FarmersWeatherAlertViewSet(viewsets.ModelViewSet):
     pagination_class = StandardPagination  # Paginate
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]  # Filter
     search_fields = ['farmer__first_name', 'alert_type']  # Search
-    ordering = ['-issued_at']  # Newest first
+    ordering = ['-created_at']  # Newest first
     permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
@@ -46,7 +48,23 @@ class FarmersWeatherAlertViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = FarmersWeatherAlert.objects.all().order_by('-issued_at')
+        queryset = FarmersWeatherAlert.objects.all().order_by('-created_at')
+        show_expired = str(self.request.query_params.get('show_expired', '')).lower() == 'true'
+        region = (self.request.query_params.get('region') or '').strip()
+        now = timezone.now()
+        alert_field_names = {field.name for field in FarmersWeatherAlert._meta.fields}
+
+        if not (show_expired and (user.is_staff or user.is_superuser)):
+            if 'expires_at' in alert_field_names:
+                queryset = queryset.filter(Q(expires_at__isnull=True) | Q(expires_at__gte=now))
+            elif 'is_active' in alert_field_names:
+                queryset = queryset.filter(is_active=True)
+
+        if 'is_active' in alert_field_names and not (show_expired and (user.is_staff or user.is_superuser)):
+            queryset = queryset.filter(is_active=True)
+
+        if region:
+            queryset = queryset.filter(region__icontains=region)
 
         if user.is_staff or user.is_superuser:
             farmer_id = self.request.query_params.get('farmer')

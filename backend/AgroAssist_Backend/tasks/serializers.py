@@ -2,7 +2,7 @@
 from rest_framework import serializers
 
 # Import models to serialize
-from .models import FarmerTask, TaskReminder, TaskLog
+from .models import FarmerTask, TaskReminder, TaskLog, Reminder
 
 
 # SERIALIZER 1: FarmerTaskSerializer - Convert farmer tasks to/from JSON
@@ -31,17 +31,19 @@ class FarmerTaskSerializer(serializers.ModelSerializer):
         }
     
     def validate_due_date(self, value):
-        """Validate that due_date is in proper format and in the future."""
-        from datetime import datetime
-        today = datetime.now().date()
-        if value < today:
-            raise serializers.ValidationError("Due date must be today or in the future.")
+        """Allow past dates; overdue calculation handles warning behavior in API/UI."""
         return value
     
     def validate_priority(self, value):
         """Validate priority is in valid range."""
         if not (1 <= value <= 10):
             raise serializers.ValidationError("Priority must be between 1 and 10.")
+        return value
+
+    def validate_status(self, value):
+        valid = {choice[0] for choice in FarmerTask.STATUS_CHOICES}
+        if value not in valid:
+            raise serializers.ValidationError("Select a valid status.")
         return value
     
     def get_farmer_name(self, obj):
@@ -147,13 +149,7 @@ class CreateTaskSerializer(serializers.ModelSerializer):
         }
     
     def validate_due_date(self, value):
-        # Check that due date is in the future
-        from datetime import datetime
-        today = datetime.now().date()
-        
-        if value < today:  # If due date is in the past
-            raise serializers.ValidationError("Due date cannot be in the past.")
-        
+        # Overdue tasks are allowed; clients can still highlight this as a warning.
         return value
 
     def validate_priority(self, value):
@@ -256,3 +252,15 @@ class DailyTaskSummarySerializer(serializers.Serializer):
     
     # CharField = Summary text
     summary = serializers.CharField()  # Generated summary (e.g., "5 tasks, 2 completed")
+
+
+class ReminderSerializer(serializers.ModelSerializer):
+    sent_to_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Reminder
+        fields = ['id', 'farmers', 'message', 'sent_by', 'sent_at', 'reminder_type', 'sent_to_count']
+        read_only_fields = ['id', 'sent_by', 'sent_at', 'sent_to_count']
+
+    def get_sent_to_count(self, obj):
+        return obj.farmers.count()

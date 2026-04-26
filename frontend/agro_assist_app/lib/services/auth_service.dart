@@ -6,33 +6,34 @@ class AuthSession {
   final String token;
   final int userId;
   final String username;
-  final String role;
+  final bool isAdmin;
+  final String email;
   final int? farmerId;
-  final String fullName;
 
   const AuthSession({
     required this.token,
     required this.userId,
     required this.username,
-    required this.role,
+    required this.isAdmin,
+    required this.email,
     required this.farmerId,
-    required this.fullName,
   });
-
-  bool get isAdmin => role == 'admin';
-  bool get isFarmer => role == 'farmer';
 }
 
 class AuthService {
   static const _tokenKey = 'auth_token';
   static const _userIdKey = 'auth_user_id';
   static const _usernameKey = 'auth_username';
-  static const _roleKey = 'auth_role';
+  static const _isAdminKey = 'auth_is_admin';
+  static const _emailKey = 'auth_email';
   static const _farmerIdKey = 'auth_farmer_id';
-  static const _fullNameKey = 'auth_full_name';
 
   static AuthSession? _session;
   static AuthSession? get session => _session;
+
+  static bool get isLoggedIn => _session != null;
+  static bool get isAdmin => _session?.isAdmin ?? false;
+  static bool get isFarmer => _session != null && !(_session!.isAdmin);
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -43,34 +44,24 @@ class AuthService {
       return;
     }
 
-    _session = AuthSession(
+    final restored = AuthSession(
       token: token,
       userId: prefs.getInt(_userIdKey) ?? 0,
       username: prefs.getString(_usernameKey) ?? '',
-      role: prefs.getString(_roleKey) ?? 'farmer',
+      isAdmin: prefs.getBool(_isAdminKey) ?? false,
+      email: prefs.getString(_emailKey) ?? '',
       farmerId: prefs.getInt(_farmerIdKey),
-      fullName: prefs.getString(_fullNameKey) ?? '',
     );
+
+    _session = restored;
     ApiService.setAuthToken(token);
 
     try {
-      final currentUser = await ApiService.getCurrentUser();
-      await _saveSessionFromPayload(currentUser, tokenOverride: token);
-    } catch (error) {
-      if (_isUnauthorizedError(error)) {
-        await logout();
-      }
+      final me = await ApiService.getCurrentUser();
+      await _saveFromPayload(me, tokenOverride: token);
+    } catch (_) {
+      await logout();
     }
-  }
-
-  static bool _isUnauthorizedError(Object error) {
-    final message = error.toString().toLowerCase();
-    return message.contains('401') ||
-        message.contains('403') ||
-        message.contains('unauthorized') ||
-        message.contains('forbidden') ||
-        message.contains('invalid token') ||
-        message.contains('token not valid');
   }
 
   static Future<AuthSession> login({
@@ -78,12 +69,12 @@ class AuthService {
     required String password,
   }) async {
     final payload = await ApiService.login(username: username, password: password);
-    return _saveSessionFromPayload(payload);
+    return _saveFromPayload(payload);
   }
 
   static Future<AuthSession> registerFarmer(Map<String, dynamic> payload) async {
     final response = await ApiService.registerFarmer(payload);
-    return _saveSessionFromPayload(response);
+    return _saveFromPayload(response);
   }
 
   static Future<void> logout() async {
@@ -95,52 +86,56 @@ class AuthService {
     await prefs.remove(_tokenKey);
     await prefs.remove(_userIdKey);
     await prefs.remove(_usernameKey);
-    await prefs.remove(_roleKey);
+    await prefs.remove(_isAdminKey);
+    await prefs.remove(_emailKey);
     await prefs.remove(_farmerIdKey);
-    await prefs.remove(_fullNameKey);
 
     _session = null;
     ApiService.setAuthToken(null);
   }
 
-  static Future<AuthSession> _saveSessionFromPayload(
+  static Future<AuthSession> _saveFromPayload(
     Map<String, dynamic> payload, {
     String? tokenOverride,
   }) async {
     final token = tokenOverride ?? payload['token']?.toString() ?? '';
     if (token.isEmpty) {
-      throw Exception('Missing auth token in response.');
+      throw Exception('Missing auth token in response');
     }
 
-    final userId = (payload['user_id'] as num?)?.toInt() ?? 0;
+    final userId = (payload['user_id'] as num?)?.toInt() ??
+        (payload['id'] as num?)?.toInt() ??
+        0;
     final username = payload['username']?.toString() ?? '';
-    final role = payload['role']?.toString() ?? 'farmer';
+    final isAdmin = (payload['is_admin'] as bool?) ??
+        (payload['is_staff'] as bool?) ??
+        false;
+    final email = payload['email']?.toString() ?? '';
     final farmerId = (payload['farmer_id'] as num?)?.toInt();
-    final fullName = payload['full_name']?.toString() ?? username;
 
-    final authSession = AuthSession(
+    final nextSession = AuthSession(
       token: token,
       userId: userId,
       username: username,
-      role: role,
+      isAdmin: isAdmin,
+      email: email,
       farmerId: farmerId,
-      fullName: fullName,
     );
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
     await prefs.setInt(_userIdKey, userId);
     await prefs.setString(_usernameKey, username);
-    await prefs.setString(_roleKey, role);
+    await prefs.setBool(_isAdminKey, isAdmin);
+    await prefs.setString(_emailKey, email);
     if (farmerId != null) {
       await prefs.setInt(_farmerIdKey, farmerId);
     } else {
       await prefs.remove(_farmerIdKey);
     }
-    await prefs.setString(_fullNameKey, fullName);
 
-    _session = authSession;
+    _session = nextSession;
     ApiService.setAuthToken(token);
-    return authSession;
+    return nextSession;
   }
 }

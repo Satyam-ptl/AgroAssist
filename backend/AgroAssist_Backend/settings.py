@@ -24,8 +24,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-from decouple import config
-
 SECRET_KEY = config('SECRET_KEY', default='unsafe-secret-key')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
@@ -49,6 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework.authtoken',
+    'django_filters',
     'AgroAssist_Backend.farmers',
     'AgroAssist_Backend.crops',
     'AgroAssist_Backend.weather',
@@ -140,8 +139,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # ==================== CORS CONFIGURATION ====================
 # CORS (Cross-Origin Resource Sharing) allows Flutter app to connect to Django API
 
-# Allow all origins only when explicitly enabled (or by default in debug mode).
-cors_allow_all_default = 'True' if DEBUG else 'True'  # Default to True for local development
+# Allow all origins by default only in debug mode.
+cors_allow_all_default = 'True' if DEBUG else 'False'
 CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', cors_allow_all_default).lower() == 'true'
 
 local_dev_origins = [
@@ -210,11 +209,12 @@ CORS_ALLOW_HEADERS = [
 REST_FRAMEWORK = {
     # Pagination settings
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20,  # Default number of items per page
+    'PAGE_SIZE': 100,  # Default number of items per page
     
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
         'AgroAssist_Backend.farmers.stateless_token_auth.StatelessTokenAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ],
     
     # Permissions - require authentication by default (FIXED from AllowAny)
@@ -224,9 +224,22 @@ REST_FRAMEWORK = {
     
     # Filtering
     'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
 }
+
+
+# ==================== PRODUCTION SECURITY SETTINGS ====================
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=not DEBUG, cast=bool)
+SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=not DEBUG, cast=bool)
+CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=not DEBUG, cast=bool)
+SECURE_HSTS_SECONDS = config('SECURE_HSTS_SECONDS', default=0 if DEBUG else 31536000, cast=int)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=not DEBUG, cast=bool)
+SECURE_HSTS_PRELOAD = config('SECURE_HSTS_PRELOAD', default=False, cast=bool)
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
 
 

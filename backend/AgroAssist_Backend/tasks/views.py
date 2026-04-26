@@ -2,18 +2,29 @@
 from datetime import timedelta
 
 from rest_framework import viewsets, filters
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from django.utils import timezone
+from django.db.models import Case, IntegerField, Value, When
 
-from .models import FarmerTask, TaskReminder, TaskLog
-from .serializers import FarmerTaskSerializer, TaskReminderSerializer, TaskLogSerializer
+from .models import FarmerTask, TaskReminder, TaskLog, Reminder
+from .serializers import FarmerTaskSerializer, TaskReminderSerializer, TaskLogSerializer, ReminderSerializer
 from AgroAssist_Backend.farmers.models import Farmer
 
 
 def _linked_farmer_for_user(user):
-    return Farmer.objects.filter(email__iexact=user.email).first()
+    farmer = getattr(user, 'farmer', None)
+    if farmer is not None:
+        return farmer
+
+    user_email = getattr(user, 'email', '')
+    if not user_email:
+        return None
+
+    return Farmer.objects.filter(email__iexact=user_email).first()
 
 
 def _build_reminder_message(task, days_before):
@@ -84,6 +95,20 @@ class FarmerTaskViewSet(viewsets.ModelViewSet):
         if self.action in ['update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return super().get_permissions()
+
+    @staticmethod
+    def _normalize_status(status_value):
+        if not status_value:
+            return None
+
+        normalized = status_value.strip().lower().replace('-', '_').replace(' ', '_')
+        mapping = {
+            'pending': 'Pending',
+            'in_progress': 'In Progress',
+            'completed': 'Completed',
+            'overdue': 'Overdue',
+        }
+        return mapping.get(normalized)
     
     def get_queryset(self):
         """Scope tasks: admins see all, farmers see only their assigned tasks."""
@@ -94,15 +119,38 @@ class FarmerTaskViewSet(viewsets.ModelViewSet):
         
         # Admins see all tasks
         if user.is_staff or user.is_superuser:
-            return queryset
+            scoped_queryset = queryset
+            farmer_id = self.request.query_params.get('farmer_id')
+            if farmer_id:
+                scoped_queryset = scoped_queryset.filter(farmer_id=farmer_id)
+        else:
+            # Farmers see only their assigned tasks
+            farmer = _linked_farmer_for_user(user)
+            if farmer:
+                scoped_queryset = queryset.filter(farmer=farmer)
+            else:
+                # Return empty if not admin and not linked farmer
+                scoped_queryset = queryset.none()
         
-        # Farmers see only their assigned tasks
-        farmer = _linked_farmer_for_user(user)
-        if farmer:
-            return queryset.filter(farmer=farmer)
+        status = self.request.query_params.get('status', None)
+        if status:
+            normalized_status = self._normalize_status(status)
+            if normalized_status:
+                scoped_queryset = scoped_queryset.filter(status=normalized_status)
+            else:
+                scoped_queryset = scoped_queryset.none()
         
-        # Return empty if not admin and not linked farmer
-        return queryset.none()
+        priority = self.request.query_params.get('priority', None)
+        if priority:
+            scoped_queryset = scoped_queryset.filter(priority=priority)
+
+        return scoped_queryset.annotate(
+            overdue_rank=Case(
+                When(status='Overdue', then=Value(0)),
+                default=Value(1),
+                output_field=IntegerField(),
+            )
+        ).order_by('overdue_rank', 'due_date')
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -139,6 +187,89 @@ class FarmerTaskViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         task = serializer.save()
         _sync_task_reminders(task)
+
+    @action(detail=True, methods=['patch'], url_path='update-status')
+    def update_status(self, request, pk=None):
+        task = self.get_object()
+        user = request.user
+
+        if not (user.is_staff or user.is_superuser):
+            farmer = _linked_farmer_for_user(user)
+            if not farmer or task.farmer_id != farmer.id:
+                raise PermissionDenied('You can only update your own tasks.')
+
+        requested_status = request.data.get('status')
+        normalized_status = self._normalize_status(requested_status)
+        if not normalized_status:
+            raise ValidationError(
+                {'status': ['Allowed values: pending, in_progress, completed, overdue.']}
+            )
+
+        task.status = normalized_status
+        task.is_completed = normalized_status == 'Completed'
+        task.completed_date = timezone.localdate() if task.is_completed else None
+        task.save(update_fields=['status', 'is_completed', 'completed_date', 'updated_at'])
+        _sync_task_reminders(task)
+
+        serializer = self.get_serializer(task)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'], url_path='send-reminder')
+    def send_reminder(self, request):
+        user = request.user
+        if not (user.is_staff or user.is_superuser):
+            raise PermissionDenied('Only admin users can send reminders.')
+
+        farmer_ids = request.data.get('farmer_ids')
+        message = (request.data.get('message') or '').strip()
+        reminder_type = (request.data.get('reminder_type') or '').strip().lower()
+
+        if reminder_type not in {'pending', 'overdue', 'custom'}:
+            raise ValidationError({'reminder_type': ['Allowed values: pending, overdue, custom.']})
+        if not message:
+            raise ValidationError({'message': ['This field is required.']})
+
+        if farmer_ids == 'all':
+            target_farmers = Farmer.objects.all()
+        elif isinstance(farmer_ids, list):
+            target_farmers = Farmer.objects.filter(id__in=farmer_ids)
+        else:
+            raise ValidationError({'farmer_ids': ['Use "all" or a list of farmer IDs.']})
+
+        reminder = Reminder.objects.create(
+            message=message,
+            sent_by=user,
+            reminder_type=reminder_type,
+        )
+        reminder.farmers.set(target_farmers)
+
+        return Response({'sent_to': target_farmers.count(), 'message': 'Reminders sent'})
+
+    @action(detail=False, methods=['get'], url_path='reminders')
+    def reminders(self, request):
+        user = request.user
+        queryset = Reminder.objects.prefetch_related('farmers').select_related('sent_by')
+
+        if user.is_staff or user.is_superuser:
+            serializer = ReminderSerializer(queryset, many=True)
+            return Response(serializer.data)
+
+        farmer = _linked_farmer_for_user(user)
+        if not farmer:
+            return Response([])
+
+        serializer = ReminderSerializer(queryset.filter(farmers=farmer), many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='reminders-history')
+    def reminders_history(self, request):
+        user = request.user
+        if not (user.is_staff or user.is_superuser):
+            raise PermissionDenied('Only admin users can view reminder history.')
+
+        queryset = Reminder.objects.prefetch_related('farmers').select_related('sent_by')
+        serializer = ReminderSerializer(queryset, many=True)
+        return Response(serializer.data)
 
 # Task Reminder ViewSet - Notifications for tasks
 class TaskReminderViewSet(viewsets.ModelViewSet):

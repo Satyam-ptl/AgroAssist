@@ -1,11 +1,22 @@
 ﻿# Import Django model classes for database
 from django.db import models
+from django.conf import settings
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 # Import Crop model from crops app to link farmers with crops they can grow
 from AgroAssist_Backend.crops.models import Crop
 
 # MODEL 1: Farmer - Information about a farmer user
 class Farmer(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='farmer',
+        null=True,
+        blank=True,
+    )
+
     # CharField = Text field with max length (short text data)
     first_name = models.CharField(max_length=100)  # Farmer's first name (e.g., "Rajesh")
     
@@ -84,6 +95,31 @@ class Farmer(models.Model):
     def __str__(self):
         # Shows "Rajesh Patil" when displaying farmer
         return f"{self.first_name} {self.last_name}"
+
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def link_or_create_farmer_for_user(sender, instance, created, **kwargs):
+    if instance.is_staff or instance.is_superuser:
+        return
+
+    farmer = Farmer.objects.filter(user=instance).first()
+    if farmer:
+        if farmer.email.lower() != (instance.email or '').lower() and instance.email:
+            farmer.email = instance.email
+            farmer.save(update_fields=['email'])
+        return
+
+    farmer_by_email = None
+    if instance.email:
+        farmer_by_email = Farmer.objects.filter(email__iexact=instance.email).first()
+
+    if farmer_by_email:
+        farmer_by_email.user = instance
+        farmer_by_email.save(update_fields=['user'])
+        return
+
+    # Intentionally do not auto-create Farmer here to avoid duplicate profiles
+    # when signup/tests create Farmer separately.
 
 
 # MODEL 2: FarmerCrop - Link between farmers and crops (which crops each farmer grows)

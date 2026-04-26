@@ -36,6 +36,13 @@ class Crop(models.Model):
         ('Summer', 'Summer'),  # Summer season crops
     ]
     season = models.CharField(max_length=20, choices=SEASON_CHOICES, default='Kharif')  # Which season to grow
+
+    states = models.CharField(
+        max_length=500,
+        blank=True,
+        default='',
+        help_text='Comma-separated states where this crop grows. e.g. Maharashtra,Punjab,Gujarat'
+    )
     
     # CharField with choices = Dropdown for soil type
     SOIL_CHOICES = [
@@ -81,6 +88,7 @@ class Crop(models.Model):
             models.Index(fields=['category']),
             models.Index(fields=['crop_type']),
             models.Index(fields=['season']),
+            models.Index(fields=['states']),
             models.Index(fields=['soil_type']),
         ]
     

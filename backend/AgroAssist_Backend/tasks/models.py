@@ -1,5 +1,6 @@
 ﻿# Import Django model classes for database
 from django.db import models
+from django.conf import settings
 
 # Import related models from other apps
 from AgroAssist_Backend.farmers.models import Farmer, FarmerCrop  # Farmer and their crops
@@ -174,4 +175,24 @@ class TaskLog(models.Model):
     def __str__(self):
         # Shows "2025-02-22 - Rajesh Patil - Apply Fertilizer - Completed" when displaying
         return f"{self.timestamp.date()} - {self.task.farmer.first_name} - {self.task.task_name} - {self.action}"
+
+
+class Reminder(models.Model):
+    REMINDER_TYPE_CHOICES = [
+        ('pending', 'Pending'),
+        ('overdue', 'Overdue'),
+        ('custom', 'Custom'),
+    ]
+
+    farmers = models.ManyToManyField('farmers.Farmer', related_name='reminders')
+    message = models.TextField()
+    sent_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    sent_at = models.DateTimeField(auto_now_add=True)
+    reminder_type = models.CharField(max_length=20, choices=REMINDER_TYPE_CHOICES)
+
+    class Meta:
+        ordering = ['-sent_at']
+
+    def __str__(self):
+        return f"Reminder {self.id} ({self.reminder_type})"
 

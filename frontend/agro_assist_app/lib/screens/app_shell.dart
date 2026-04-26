@@ -1,70 +1,114 @@
 import 'package:flutter/material.dart';
 
-import '../services/auth_service.dart';
 import 'crops_screen.dart';
 import 'farmers_screen.dart';
 import 'home_screen.dart';
+import 'profile_screen.dart';
 import 'tasks_screen.dart';
-import 'weather_screen.dart';
 
-class AppShell extends StatefulWidget {
-  const AppShell({super.key});
+class AdminHomeScreen extends StatefulWidget {
+  const AdminHomeScreen({super.key});
 
   @override
-  State<AppShell> createState() => _AppShellState();
+  State<AdminHomeScreen> createState() => _AdminHomeScreenState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _index = 0;
 
-  static const _pages = [
+  final List<Widget> _pages = const [
     HomeScreen(),
     CropsScreen(),
-    FarmersScreen(),
     TasksScreen(),
-    WeatherScreen(),
+    FarmersScreen(),
+    ProfileScreen(),
   ];
-
-  List<NavigationDestination> _destinationsForRole() {
-    final isFarmer = AuthService.session?.isFarmer == true;
-    return [
-      const NavigationDestination(
-        icon: Icon(Icons.dashboard_outlined),
-        selectedIcon: Icon(Icons.dashboard),
-        label: 'Home',
-      ),
-      const NavigationDestination(
-        icon: Icon(Icons.spa_outlined),
-        selectedIcon: Icon(Icons.spa),
-        label: 'Crops',
-      ),
-      NavigationDestination(
-        icon: Icon(isFarmer ? Icons.person_outline : Icons.group_outlined),
-        selectedIcon: Icon(isFarmer ? Icons.person : Icons.group),
-        label: isFarmer ? 'Profile' : 'Farmers',
-      ),
-      const NavigationDestination(
-        icon: Icon(Icons.assignment_outlined),
-        selectedIcon: Icon(Icons.assignment),
-        label: 'Tasks',
-      ),
-      const NavigationDestination(
-        icon: Icon(Icons.wb_cloudy_outlined),
-        selectedIcon: Icon(Icons.wb_cloudy),
-        label: 'Weather',
-      ),
-    ];
-  }
 
   @override
   Widget build(BuildContext context) {
-    final destinations = _destinationsForRole();
     return Scaffold(
-      body: IndexedStack(index: _index, children: _pages),
+      body: SafeArea(child: IndexedStack(index: _index, children: _pages)),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (value) => setState(() => _index = value),
-        destinations: destinations,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.grass_outlined),
+            selectedIcon: Icon(Icons.grass),
+            label: 'Crops',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.assignment_outlined),
+            selectedIcon: Icon(Icons.assignment),
+            label: 'Tasks',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.group_outlined),
+            selectedIcon: Icon(Icons.group),
+            label: 'Farmers',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class FarmerHomeScreen extends StatefulWidget {
+  const FarmerHomeScreen({super.key});
+
+  @override
+  State<FarmerHomeScreen> createState() => _FarmerHomeScreenState();
+}
+
+class _FarmerHomeScreenState extends State<FarmerHomeScreen> {
+  int _index = 0;
+
+  final List<Widget> _pages = const [
+    HomeScreen(),
+    CropsScreen(),
+    TasksScreen(),
+    ProfileScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(child: IndexedStack(index: _index, children: _pages)),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (value) => setState(() => _index = value),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.grass_outlined),
+            selectedIcon: Icon(Icons.grass),
+            label: 'Crops',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.assignment_outlined),
+            selectedIcon: Icon(Icons.assignment),
+            label: 'My Tasks',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
       ),
     );
   }

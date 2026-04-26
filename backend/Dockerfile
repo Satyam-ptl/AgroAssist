@@ -18,9 +18,12 @@ COPY api ./api
 COPY import_templates ./import_templates
 COPY rbac_smoke_check.py ./
 COPY vercel.json ./
+COPY entrypoint.sh ./
+
+RUN chmod +x /app/entrypoint.sh
 
 RUN mkdir -p staticfiles
 
 EXPOSE 8000
 
-CMD ["gunicorn", "AgroAssist_Backend.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD ["/app/entrypoint.sh"]

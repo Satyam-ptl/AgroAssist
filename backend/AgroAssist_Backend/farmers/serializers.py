@@ -38,15 +38,17 @@ class FarmerValidationMixin:
 class FarmerSerializer(FarmerValidationMixin, serializers.ModelSerializer):
     # Get full name by combining first and last name
     full_name = serializers.SerializerMethodField()  # Custom field for full name
+    location = serializers.CharField(source='city', read_only=True)
     
     class Meta:
         model = Farmer
-        fields = ['id', 'first_name', 'last_name', 'full_name', 'email', 'phone_number', 
+        fields = ['id', 'user', 'first_name', 'last_name', 'full_name', 'email', 'phone_number',
+              'location',
                   'address', 'city', 'state', 'postal_code', 'preferred_language', 
                   'land_area_hectares', 'soil_type', 'experience_level', 
                   'farming_notes', 'contact_method', 'created_at', 'updated_at']
         
-        read_only_fields = ['created_at', 'updated_at', 'full_name']  # These can't be edited by API
+        read_only_fields = ['created_at', 'updated_at', 'full_name', 'user', 'location']  # These can't be edited by API
         
         # Add validation rules for fields
         extra_kwargs = {

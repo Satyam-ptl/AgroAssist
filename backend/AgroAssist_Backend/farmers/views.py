@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from django.contrib.auth import get_user_model
 
 # Import models and serializers
@@ -14,6 +14,9 @@ from .serializers import (FarmerSerializer, FarmerCropSerializer, FarmerInventor
 
 
 def _linked_farmer_for_user(user):
+    farmer = getattr(user, 'farmer', None)
+    if farmer is not None:
+        return farmer
     return Farmer.objects.filter(email__iexact=user.email).first()
 
 
@@ -37,6 +40,9 @@ class FarmerViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
+        if self.action == 'me':
+            return [IsAuthenticated()]
+
         if self.action in [
             'create',
             'update',
@@ -74,13 +80,52 @@ class FarmerViewSet(viewsets.ModelViewSet):
         return FarmerSerializer  # Standard serializer
 
     def destroy(self, request, *args, **kwargs):
-        farmer = self.get_object()
+        if not (request.user.is_staff or request.user.is_superuser):
+            raise PermissionDenied('Only admin users can delete farmers.')
+        return super().destroy(request, *args, **kwargs)
+
+    def perform_destroy(self, instance):
         user_model = get_user_model()
-        linked_user = user_model.objects.filter(email__iexact=farmer.email).first()
-        response = super().destroy(request, *args, **kwargs)
+        linked_user = instance.user or user_model.objects.filter(email__iexact=instance.email).first()
+        instance.delete()
         if linked_user and not linked_user.is_superuser:
             linked_user.delete()
-        return response
+
+    @action(detail=False, methods=['get', 'patch'])
+    def me(self, request):
+        farmer = _linked_farmer_for_user(request.user)
+        if not farmer:
+            return Response({'detail': 'No farmer profile found for this user.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if request.method == 'GET':
+            serializer = FarmerSerializer(farmer)
+            payload = serializer.data
+            payload['location'] = payload.get('city', '')
+            return Response(payload)
+
+        allowed_fields = {'phone_number', 'phone', 'location'}
+        incoming = set(request.data.keys())
+        invalid_fields = incoming - allowed_fields
+        if invalid_fields:
+            raise ValidationError(
+                {'detail': f"Only these fields can be updated: {', '.join(sorted(allowed_fields))}."}
+            )
+
+        update_data = {}
+        if 'phone_number' in request.data:
+            update_data['phone_number'] = request.data.get('phone_number')
+        elif 'phone' in request.data:
+            update_data['phone_number'] = request.data.get('phone')
+        if 'location' in request.data:
+            update_data['city'] = request.data.get('location')
+
+        serializer = FarmerSerializer(farmer, data=update_data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        payload = serializer.data
+        payload['location'] = payload.get('city', '')
+        return Response(payload)
     
     # ACTION: Get farmer by experience level
     @action(detail=False, methods=['get'])  # GET at /farmers/by_experience/

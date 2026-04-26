@@ -56,6 +56,8 @@ class FarmersWeatherAlert(models.Model):
     
     # CharField = Alert title/subject
     alert_title = models.CharField(max_length=200)  # Title (e.g., "Heavy Rain Warning")
+
+    region = models.CharField(max_length=120, blank=True, default='')
     
     # TextField = Detailed alert message
     alert_message = models.TextField()  # Details about the alert (e.g., "Rain expected for 3 days")
@@ -85,6 +87,8 @@ class FarmersWeatherAlert(models.Model):
     
     # DateTimeField = When the dangerous condition ends
     expires_at = models.DateTimeField(blank=True, null=True)  # When alert is no longer valid
+
+    is_active = models.BooleanField(default=True)
     
     # BooleanField = Whether farmer has read this alert
     is_read = models.BooleanField(default=False)  # Has farmer seen this alert? (True = yes, False = no)

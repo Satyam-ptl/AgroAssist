@@ -40,12 +40,13 @@ class FarmersWeatherAlertSerializer(WeatherAlertValidationMixin, serializers.Mod
     # SerializerMethodField = Custom fields
     farmer_name = serializers.SerializerMethodField()  # Show farmer name
     is_active = serializers.SerializerMethodField()  # Check if alert is still active
+    is_expired = serializers.SerializerMethodField()
     time_until_expiry = serializers.SerializerMethodField()  # Days until alert expires
     
     class Meta:
         model = FarmersWeatherAlert
         fields = ['id', 'farmer', 'farmer_name', 'alert_title', 'alert_message', 'severity',
-                  'alert_type', 'issued_at', 'expires_at', 'is_active', 'time_until_expiry',
+              'alert_type', 'region', 'issued_at', 'expires_at', 'is_active', 'is_expired', 'time_until_expiry',
                   'is_read', 'action_taken', 'farmer_notes', 'created_at', 'updated_at']
         
         read_only_fields = ['created_at', 'updated_at', 'issued_at', 'farmer_name', 
@@ -72,6 +73,11 @@ class FarmersWeatherAlertSerializer(WeatherAlertValidationMixin, serializers.Mod
         difference = obj.expires_at - now  # Calculate time remaining
         hours = difference.total_seconds() / 3600  # Convert to hours
         return round(hours, 1)  # Round to 1 decimal place
+
+    def get_is_expired(self, obj):
+        if not obj.expires_at:
+            return False
+        return timezone.now() >= obj.expires_at
 
 
 # SERIALIZER 3: WeatherForecastSerializer - Convert weather forecast to/from JSON
@@ -115,13 +121,14 @@ class WeatherAlertDetailSerializer(WeatherAlertValidationMixin, serializers.Mode
     farmer_name = serializers.SerializerMethodField()  # Farmer name
     farmer_details = serializers.SerializerMethodField()  # Farmer contact info
     is_active = serializers.SerializerMethodField()  # If alert is still valid
+    is_expired = serializers.SerializerMethodField()
     recommendation = serializers.SerializerMethodField()  # What farmer should do
     
     class Meta:
         model = FarmersWeatherAlert
         fields = ['id', 'farmer', 'farmer_name', 'farmer_details', 'alert_title',
-                  'alert_message', 'severity', 'alert_type', 'issued_at', 'expires_at',
-                  'is_active', 'is_read', 'action_taken', 'farmer_notes', 
+              'alert_message', 'severity', 'alert_type', 'region', 'issued_at', 'expires_at',
+              'is_active', 'is_expired', 'is_read', 'action_taken', 'farmer_notes', 
                   'recommendation', 'created_at', 'updated_at']
         
         read_only_fields = ['created_at', 'updated_at', 'issued_at', 'farmer_name',
@@ -162,6 +169,11 @@ class WeatherAlertDetailSerializer(WeatherAlertValidationMixin, serializers.Mode
         }
         
         return recommendations.get(alert_type, 'Monitor your crops closely.')  # Return recommendation
+
+    def get_is_expired(self, obj):
+        if not obj.expires_at:
+            return False
+        return timezone.now() >= obj.expires_at
 
 
 # SERIALIZER 5: LocationWeatherSerializer - Weather summary for a location

@@ -60,7 +60,11 @@ class _SignupScreenState extends State<SignupScreen> {
 
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const AppShell()),
+        MaterialPageRoute<void>(
+          builder: (_) => AuthService.isAdmin
+              ? const AdminHomeScreen()
+              : const FarmerHomeScreen(),
+        ),
         (_) => false,
       );
     } catch (e) {

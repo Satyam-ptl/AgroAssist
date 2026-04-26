@@ -1,4 +1,5 @@
 import os
+import re
 
 from django.contrib.auth import get_user_model
 from django.core import signing
@@ -53,6 +54,10 @@ class StatelessTokenAuthentication(authentication.BaseAuthentication):
             token = auth[1].decode('utf-8')
         except UnicodeError as exc:
             raise AuthenticationFailed('Invalid token header. Token string should not contain invalid characters.') from exc
+
+        # Let DRF TokenAuthentication handle legacy 40-char hex token keys.
+        if re.fullmatch(r'[0-9a-fA-F]{40}', token):
+            return None
 
         user = _resolve_user_from_token(token)
         return (user, token)
