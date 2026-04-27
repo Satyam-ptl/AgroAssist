@@ -55,13 +55,33 @@ class CropViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='seasons')
     def seasons(self, request):
-        seasons = (
+        raw_seasons = (
             Crop.objects.exclude(season__isnull=True)
             .exclude(season__exact='')
             .values_list('season', flat=True)
-            .distinct()
         )
-        return Response(sorted(seasons, key=lambda s: s.lower()))
+
+        canonical = {
+            'kharif': 'Kharif',
+            'rabi': 'Rabi',
+            'summer': 'Summer',
+        }
+        seen = set()
+        normalized = []
+
+        for season in raw_seasons:
+            cleaned = season.strip()
+            if not cleaned:
+                continue
+
+            key = cleaned.lower()
+            if key in seen:
+                continue
+
+            seen.add(key)
+            normalized.append(canonical.get(key, cleaned.title()))
+
+        return Response(sorted(normalized, key=lambda s: s.lower()))
 
     @action(detail=False, methods=['get'], url_path='states')
     def states(self, request):

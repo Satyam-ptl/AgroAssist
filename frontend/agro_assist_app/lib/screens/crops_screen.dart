@@ -55,11 +55,29 @@ class _CropsScreenState extends State<CropsScreen> {
     try {
       final seasons = await ApiService.getCropSeasons();
       final states = await ApiService.getCropStates();
+      final uniqueSeasons = <String>[];
+      for (final season in seasons) {
+        final value = season.trim();
+        if (value.isEmpty || uniqueSeasons.contains(value)) {
+          continue;
+        }
+        uniqueSeasons.add(value);
+      }
+
+      final uniqueStates = <String>[];
+      for (final state in states) {
+        final value = state.trim();
+        if (value.isEmpty || uniqueStates.contains(value)) {
+          continue;
+        }
+        uniqueStates.add(value);
+      }
+
       if (!mounted) return;
       setState(() {
         // FIX: Build list and set default selected value
-        _seasons = ['All', ...seasons];
-        _states = ['All', ...states];
+        _seasons = ['All', ...uniqueSeasons];
+        _states = ['All', ...uniqueStates];
         _selectedSeason = 'All';
         _selectedState = 'All';
         _filtersLoaded = true;
@@ -588,8 +606,13 @@ class _CropsScreenState extends State<CropsScreen> {
         text: (existing?['description'] ?? '').toString());
 
     // FIX: Use valid season from list
-    final availableSeasons =
-        _seasons.where((s) => s != 'All').toList();
+    final availableSeasons = <String>[];
+    for (final seasonValue in _seasons) {
+      if (seasonValue == 'All' || availableSeasons.contains(seasonValue)) {
+        continue;
+      }
+      availableSeasons.add(seasonValue);
+    }
     if (availableSeasons.isEmpty) {
       availableSeasons.addAll(['Kharif', 'Rabi', 'Summer']);
     }

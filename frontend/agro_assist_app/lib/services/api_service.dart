@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ApiException implements Exception {
@@ -14,10 +15,18 @@ class ApiException implements Exception {
 
 class ApiService {
   static final String baseUrl = _normalizeApiBaseUrl(
-    const String.fromEnvironment(
-      'API_BASE_URL',
-      defaultValue: 'http://127.0.0.1:8000/api',
-    ),
+    () {
+      const configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
+      if (configuredBaseUrl.trim().isNotEmpty) {
+        return configuredBaseUrl;
+      }
+      // Default to deployed backend for web and mobile.
+      // Use --dart-define=API_BASE_URL=... when you want a local backend.
+      if (kIsWeb) {
+        return 'https://backend-one-kohl-70.vercel.app/api';
+      }
+      return 'https://backend-one-kohl-70.vercel.app/api';
+    }(),
   );
 
   static final Map<String, String> _headers = {

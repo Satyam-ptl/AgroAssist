@@ -80,6 +80,45 @@ class FarmerCropSerializer(serializers.ModelSerializer):
         
         read_only_fields = ['created_at', 'updated_at', 'farmer_name', 'crop_name', 
                            'days_since_planting', 'days_until_harvest']  # Can't edit these
+        extra_kwargs = {
+            'farmer': {'required': False, 'allow_null': True},
+        }
+        validators = []
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        farmer = attrs.get('farmer')
+
+        if farmer is None and request is not None:
+            user = request.user
+            if not (user.is_staff or user.is_superuser):
+                farmer = getattr(user, 'farmer', None)
+                if farmer is None:
+                    farmer = Farmer.objects.filter(email__iexact=user.email).first()
+                if farmer is not None:
+                    attrs['farmer'] = farmer
+
+        farmer = attrs.get('farmer') or getattr(self.instance, 'farmer', None)
+        crop = attrs.get('crop') or getattr(self.instance, 'crop', None)
+        planting_date = attrs.get('planting_date') or getattr(self.instance, 'planting_date', None)
+
+        if farmer is None:
+            raise serializers.ValidationError({'farmer': ['This field is required.']})
+
+        if farmer and crop and planting_date:
+            duplicate_qs = FarmerCrop.objects.filter(
+                farmer=farmer,
+                crop=crop,
+                planting_date=planting_date,
+            )
+            if self.instance is not None:
+                duplicate_qs = duplicate_qs.exclude(pk=self.instance.pk)
+            if duplicate_qs.exists():
+                raise serializers.ValidationError(
+                    'This crop is already assigned to the farmer for the same planting date.'
+                )
+
+        return attrs
     
     def get_crop_name(self, obj):
         # Returns the crop name

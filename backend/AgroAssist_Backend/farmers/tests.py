@@ -4,6 +4,7 @@ from rest_framework.test import APIClient
 
 from AgroAssist_Backend.farmers.models import Farmer
 from AgroAssist_Backend.farmers.stateless_token_auth import issue_auth_token
+from AgroAssist_Backend.crops.models import Crop
 
 
 class FarmerApiTests(TestCase):
@@ -102,3 +103,34 @@ class FarmerApiTests(TestCase):
 	def test_non_admin_cannot_delete_farmer(self):
 		response = self.farmer_client.delete(f'/api/farmers/{self.target_farmer.id}/')
 		self.assertIn(response.status_code, [401, 403])
+
+	def test_farmer_can_create_farmer_crop_without_farmer_field(self):
+		crop = Crop.objects.create(
+			name='Demo Crop',
+			category='Cereal',
+			crop_type='Field',
+			description='Demo',
+			season='Kharif',
+			soil_type='Loamy',
+			growth_duration_days=90,
+			optimal_temperature=25,
+			optimal_humidity=60,
+			optimal_soil_moisture=45,
+			water_required_mm_per_week=30,
+			fertilizer_required='NPK',
+			expected_yield_per_hectare=2000,
+		)
+
+		response = self.farmer_client.post(
+			'/api/farmer-crops/',
+			{
+				'crop': crop.id,
+				'planting_date': '2026-04-27',
+				'status': 'Growing',
+				'area_allocated_hectares': 1.5,
+			},
+			format='json',
+		)
+
+		self.assertEqual(response.status_code, 201)
+		self.assertEqual(response.data['farmer'], self.linked_farmer.id)
