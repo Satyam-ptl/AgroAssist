@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import 'calculator_screen.dart';
 import 'crop_schedule_screen.dart';
 import 'growth_stages_screen.dart';
@@ -31,6 +32,7 @@ class _CropDetailScreenState extends State<CropDetailScreen> with TickerProvider
 
   final Set<int> _expandedAlertIds = <int>{};
   final TextEditingController _quickAreaController = TextEditingController();
+  bool _savingCrop = false;
 
   @override
   void initState() {
@@ -152,6 +154,26 @@ class _CropDetailScreenState extends State<CropDetailScreen> with TickerProvider
         ),
         child: Column(
           children: [
+            if (!AuthService.isAdmin)
+              SizedBox(
+                width: size.width,
+                child: ElevatedButton.icon(
+                  onPressed: _savingCrop ? null : _showStartGrowingSheet,
+                  icon: _savingCrop
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.add_circle_outline),
+                  label: Text(
+                    _savingCrop ? 'Adding...' : 'Start Growing This Crop',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+              ),
+            if (!AuthService.isAdmin) SizedBox(height: size.width * 0.03),
             _infoCard('Basic Info', [
               _pair('Name', (_details['name'] ?? '').toString()),
               _pair('Season', (_details['season'] ?? '').toString()),
@@ -212,6 +234,140 @@ class _CropDetailScreenState extends State<CropDetailScreen> with TickerProvider
         ),
       ),
     );
+  }
+
+  Future<void> _showStartGrowingSheet() async {
+    final areaController = TextEditingController(text: '1');
+    DateTime plantingDate = DateTime.now();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+          ),
+          child: StatefulBuilder(
+            builder: (ctx, setSheetState) {
+              return SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Add to My Growing Crops',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: ctx,
+                          initialDate: plantingDate,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null) {
+                          setSheetState(() => plantingDate = picked);
+                        }
+                      },
+                      child: InputDecorator(
+                        decoration: const InputDecoration(labelText: 'Planting Date'),
+                        child: Text(DateFormat('dd MMM yyyy').format(plantingDate)),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: areaController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'Area Allocated (Hectares)',
+                        hintText: 'e.g. 1.5',
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final area = double.tryParse(areaController.text.trim());
+                          if (area == null || area <= 0) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Enter a valid area in hectares.',
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+
+                          Navigator.of(ctx).pop();
+                          await _addCropForGrowing(plantingDate, area);
+                        },
+                        child: const Text('Save Crop'),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _addCropForGrowing(DateTime plantingDate, double area) async {
+    setState(() => _savingCrop = true);
+    try {
+      final growthDays = (_details['growth_duration_days'] as num?)?.toInt();
+      final expectedHarvestDate = growthDays == null
+          ? null
+          : DateFormat('yyyy-MM-dd').format(plantingDate.add(Duration(days: growthDays)));
+
+      await ApiService.addMyFarmerCrop(
+        cropId: widget.cropId,
+        plantingDate: DateFormat('yyyy-MM-dd').format(plantingDate),
+        areaAllocatedHectares: area,
+        expectedHarvestDate: expectedHarvestDate,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${widget.cropName} added to your growing crops.',
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+          backgroundColor: const Color(0xFF2E7D32),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString(),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _savingCrop = false);
+      }
+    }
   }
 
   Widget _buildGrowthPreviewTab(Size size) {

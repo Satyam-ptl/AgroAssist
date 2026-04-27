@@ -371,6 +371,21 @@ class ApiService {
     _throwParsedError(response, 'Failed to send reminders.');
   }
 
+  static Future<List<dynamic>> getMyReminders() async {
+    final response = await _get('tasks/reminders/');
+    if (response.statusCode == 200) {
+      final decoded = json.decode(response.body);
+      if (decoded is List) {
+        return List<dynamic>.from(decoded);
+      }
+      if (decoded is Map<String, dynamic> && decoded['results'] is List) {
+        return List<dynamic>.from(decoded['results'] as List);
+      }
+      return <dynamic>[];
+    }
+    _throwParsedError(response, 'Failed to load reminders.');
+  }
+
   static Future<List<dynamic>> getReminderHistory() async {
     final response = await _get('tasks/reminders-history/');
     if (response.statusCode == 200) {
@@ -392,6 +407,30 @@ class ApiService {
       return _asMap(response);
     }
     _throwParsedError(response, 'Failed to fetch farmer crops.');
+  }
+
+  static Future<Map<String, dynamic>> addMyFarmerCrop({
+    required int cropId,
+    required String plantingDate,
+    required double areaAllocatedHectares,
+    String status = 'Growing',
+    String? expectedHarvestDate,
+  }) async {
+    final payload = <String, dynamic>{
+      'crop': cropId,
+      'planting_date': plantingDate,
+      'status': status,
+      'area_allocated_hectares': areaAllocatedHectares,
+    };
+    if (expectedHarvestDate != null && expectedHarvestDate.isNotEmpty) {
+      payload['expected_harvest_date'] = expectedHarvestDate;
+    }
+
+    final response = await _post('farmer-crops/', payload);
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return _asMap(response);
+    }
+    _throwParsedError(response, 'Failed to add crop for growing.');
   }
 
   static Future<List<dynamic>> getAllWeatherAlerts({int pageSize = 100}) async {

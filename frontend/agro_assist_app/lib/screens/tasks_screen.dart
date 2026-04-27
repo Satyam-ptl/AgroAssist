@@ -16,6 +16,7 @@ class _TasksScreenState extends State<TasksScreen> with SingleTickerProviderStat
 
   bool _loading = true;
   List<Map<String, dynamic>> _tasks = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _reminders = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _farmers = <Map<String, dynamic>>[];
   int? _selectedFarmerId;
 
@@ -28,10 +29,16 @@ class _TasksScreenState extends State<TasksScreen> with SingleTickerProviderStat
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         _loadTasks();
+        if (!AuthService.isAdmin) {
+          _loadMyReminders();
+        }
       }
     });
     _loadFarmers();
     _loadTasks();
+    if (!AuthService.isAdmin) {
+      _loadMyReminders();
+    }
   }
 
   @override
@@ -87,6 +94,17 @@ class _TasksScreenState extends State<TasksScreen> with SingleTickerProviderStat
     }
   }
 
+  Future<void> _loadMyReminders() async {
+    try {
+      final items = await ApiService.getMyReminders();
+      final mapped = items
+          .map((item) => Map<String, dynamic>.from(item as Map))
+          .toList();
+      if (!mounted) return;
+      setState(() => _reminders = mapped);
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -129,6 +147,77 @@ class _TasksScreenState extends State<TasksScreen> with SingleTickerProviderStat
                     _loadTasks();
                   },
                   decoration: const InputDecoration(labelText: 'Filter by farmer'),
+                ),
+              ),
+            if (!AuthService.isAdmin && _reminders.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'My Reminders',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 118,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _reminders.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          final reminder = _reminders[index];
+                          final message = (reminder['message'] ?? '').toString();
+                          final type = (reminder['reminder_type'] ?? 'custom').toString();
+                          final sentAtRaw = (reminder['sent_at'] ?? '').toString();
+                          final sentAt = DateTime.tryParse(sentAtRaw);
+                          final sentAtText = sentAt == null
+                              ? sentAtRaw
+                              : DateFormat('dd MMM, hh:mm a').format(sentAt.toLocal());
+
+                          return Container(
+                            width: 280,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              color: const Color(0xFFE8F5E9),
+                              border: Border.all(color: const Color(0xFFA5D6A7)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  type.toUpperCase(),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1B5E20),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                                const SizedBox(height: 6),
+                                Expanded(
+                                  child: Text(
+                                    message,
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 3,
+                                  ),
+                                ),
+                                Text(
+                                  sentAtText,
+                                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
             Expanded(
