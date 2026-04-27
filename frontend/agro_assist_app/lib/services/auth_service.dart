@@ -1,5 +1,4 @@
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'api_service.dart';
 
 class AuthSession {
@@ -38,12 +37,18 @@ class AuthService {
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(_tokenKey);
+
+    // FIX: If no token stored, just set null and return
+    // Do NOT call getCurrentUser() here — that was causing
+    // session to drop whenever /api/auth/me/ returned 403
     if (token == null || token.isEmpty) {
       _session = null;
       ApiService.setAuthToken(null);
       return;
     }
 
+    // FIX: Restore session from stored prefs WITHOUT
+    // making any API call. Token is valid until logout.
     final restored = AuthSession(
       token: token,
       userId: prefs.getInt(_userIdKey) ?? 0,
@@ -56,28 +61,29 @@ class AuthService {
     _session = restored;
     ApiService.setAuthToken(token);
 
-    try {
-      final me = await ApiService.getCurrentUser();
-      await _saveFromPayload(me, tokenOverride: token);
-    } catch (_) {
-      await logout();
-    }
+    // FIX: Removed getCurrentUser() call that was causing
+    // automatic logout when /api/auth/me/ returned 403
   }
 
   static Future<AuthSession> login({
     required String username,
     required String password,
   }) async {
-    final payload = await ApiService.login(username: username, password: password);
+    final payload = await ApiService.login(
+      username: username,
+      password: password,
+    );
     return _saveFromPayload(payload);
   }
 
-  static Future<AuthSession> registerFarmer(Map<String, dynamic> payload) async {
+  static Future<AuthSession> registerFarmer(
+      Map<String, dynamic> payload) async {
     final response = await ApiService.registerFarmer(payload);
     return _saveFromPayload(response);
   }
 
   static Future<void> logout() async {
+    // FIX: Try logout but never throw — always clear local session
     try {
       await ApiService.logout();
     } catch (_) {}
@@ -98,7 +104,8 @@ class AuthService {
     Map<String, dynamic> payload, {
     String? tokenOverride,
   }) async {
-    final token = tokenOverride ?? payload['token']?.toString() ?? '';
+    final token =
+        tokenOverride ?? payload['token']?.toString() ?? '';
     if (token.isEmpty) {
       throw Exception('Missing auth token in response');
     }

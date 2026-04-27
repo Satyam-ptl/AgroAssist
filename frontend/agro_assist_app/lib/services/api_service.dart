@@ -16,7 +16,7 @@ class ApiService {
   static final String baseUrl = _normalizeApiBaseUrl(
     const String.fromEnvironment(
       'API_BASE_URL',
-      defaultValue: 'https://agroassist-backend-api.vercel.app/api',
+      defaultValue: 'http://127.0.0.1:8000/api',
     ),
   );
 
@@ -215,6 +215,36 @@ class ApiService {
       return map;
     }
     _throwParsedError(response, 'Failed to fetch crops.');
+  }
+
+  static Future<Map<String, dynamic>> getCropDetails(int id) async {
+    final response = await _get('crops/$id/details/');
+    if (response.statusCode == 200) {
+      return _asMap(response);
+    }
+    _throwParsedError(response, 'Failed to load crop details.');
+  }
+
+  static Future<Map<String, dynamic>> getCropSchedule(
+    int cropId,
+    String plantingDate,
+  ) async {
+    final response = await _get(
+      'crops/$cropId/schedule/',
+      {'planting_date': plantingDate},
+    );
+    if (response.statusCode == 200) {
+      return _asMap(response);
+    }
+    _throwParsedError(response, 'Failed to load crop schedule.');
+  }
+
+  static Future<Map<String, dynamic>> getCropAlerts(int cropId) async {
+    final response = await _get('crops/$cropId/alerts/');
+    if (response.statusCode == 200) {
+      return _asMap(response);
+    }
+    _throwParsedError(response, 'Failed to load crop alerts.');
   }
 
   static Future<List<String>> getCropSeasons() async {

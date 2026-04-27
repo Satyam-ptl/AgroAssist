@@ -1,8 +1,9 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from datetime import date
 from rest_framework.test import APIClient
 
-from AgroAssist_Backend.crops.models import Crop
+from AgroAssist_Backend.crops.models import Crop, CropCareTask, CropGuide
 from AgroAssist_Backend.farmers.models import Farmer
 from AgroAssist_Backend.farmers.stateless_token_auth import issue_auth_token
 
@@ -132,3 +133,96 @@ class CropApiTests(TestCase):
             format='json',
         )
         self.assertIn(response.status_code, [401, 403])
+
+    def test_schedule_requires_planting_date(self):
+        response = self.reader_client.get(f'/api/crops/{self.crop.id}/schedule/')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', response.data)
+
+    def test_schedule_rejects_invalid_planting_date(self):
+        response = self.reader_client.get(
+            f'/api/crops/{self.crop.id}/schedule/?planting_date=2026-99-99'
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data.get('error'), 'Invalid date format')
+
+    def test_schedule_returns_due_dates_and_summary_counts(self):
+        CropCareTask.objects.create(
+            crop=self.crop,
+            task_name='Initial irrigation',
+            description='Water immediately after sowing.',
+            recommended_dap=0,
+            frequency='Once',
+            instructions='Apply light irrigation.',
+        )
+        CropCareTask.objects.create(
+            crop=self.crop,
+            task_name='Weeding',
+            description='Remove weeds around plants.',
+            recommended_dap=5,
+            frequency='Once',
+            instructions='Manual weeding around rows.',
+        )
+
+        planting_date = date.today().isoformat()
+        response = self.reader_client.get(
+            f'/api/crops/{self.crop.id}/schedule/?planting_date={planting_date}'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data.get('crop_name'), 'Rice')
+        self.assertEqual(response.data.get('planting_date'), planting_date)
+        self.assertEqual(response.data.get('total_tasks'), 2)
+        self.assertEqual(response.data.get('overdue'), 0)
+        self.assertEqual(response.data.get('due_today'), 1)
+        self.assertEqual(response.data.get('due_soon'), 1)
+        self.assertEqual(response.data.get('upcoming'), 0)
+
+        schedule = response.data.get('schedule', [])
+        self.assertEqual(len(schedule), 2)
+        self.assertEqual(schedule[0].get('task_name'), 'Initial irrigation')
+        self.assertEqual(schedule[0].get('due_date'), planting_date)
+        self.assertEqual(schedule[0].get('days_remaining'), 0)
+        self.assertEqual(schedule[0].get('reminder_status'), 'due_today')
+        self.assertEqual(schedule[1].get('task_name'), 'Weeding')
+        self.assertEqual(schedule[1].get('days_remaining'), 5)
+        self.assertEqual(schedule[1].get('reminder_status'), 'due_soon')
+
+    def test_alerts_returns_pest_disease_and_guidance(self):
+        CropGuide.objects.create(
+            crop=self.crop,
+            sowing_instructions='Sow in rows.',
+            watering_schedule='Water every 5 days.',
+            watering_days_interval=5,
+            fertilizer_schedule='Apply NPK in split doses.',
+            disease_management='Avoid standing water and spray fungicide.',
+            pest_management='Inspect leaves every week for aphids.',
+            harvesting_instructions='Harvest when grains mature.',
+            storage_instructions='Store in dry sacks.',
+        )
+
+        response = self.reader_client.get(f'/api/crops/{self.crop.id}/alerts/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data.get('crop_name'), 'Rice')
+        self.assertEqual(response.data.get('total_alerts'), 4)
+
+        alerts = response.data.get('alerts', [])
+        self.assertEqual(len(alerts), 4)
+        alert_types = {a.get('type') for a in alerts}
+        self.assertIn('pest', alert_types)
+        self.assertIn('disease', alert_types)
+        self.assertIn('temperature', alert_types)
+        self.assertIn('water', alert_types)
+
+    def test_alerts_returns_core_guidance_without_guide(self):
+        response = self.reader_client.get(f'/api/crops/{self.crop.id}/alerts/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data.get('crop_name'), 'Rice')
+        self.assertEqual(response.data.get('total_alerts'), 2)
+
+        alerts = response.data.get('alerts', [])
+        self.assertEqual(len(alerts), 2)
+        alert_types = {a.get('type') for a in alerts}
+        self.assertEqual(alert_types, {'temperature', 'water'})

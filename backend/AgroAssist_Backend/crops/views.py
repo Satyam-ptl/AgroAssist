@@ -97,6 +97,125 @@ class CropViewSet(viewsets.ModelViewSet):
         serializer = CropDetailSerializer(crop)
         return Response(serializer.data)
 
+    @action(detail=True, methods=['get'], url_path='schedule')
+    def schedule(self, request, pk=None):
+        crop = self.get_object()
+        planting_date_str = request.query_params.get('planting_date')
+
+        if not planting_date_str:
+            return Response(
+                {'error': 'planting_date is required (YYYY-MM-DD)'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            from datetime import date, timedelta
+            planting_date = date.fromisoformat(planting_date_str)
+        except ValueError:
+            return Response(
+                {'error': 'Invalid date format'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from datetime import date as today_date
+        today = today_date.today()
+
+        care_tasks = crop.care_tasks.all().order_by('recommended_dap')
+        schedule = []
+
+        for task in care_tasks:
+            due_date = planting_date + timedelta(days=task.recommended_dap)
+            days_remaining = (due_date - today).days
+
+            if days_remaining < 0:
+                reminder_status = 'overdue'
+            elif days_remaining == 0:
+                reminder_status = 'due_today'
+            elif days_remaining <= 7:
+                reminder_status = 'due_soon'
+            else:
+                reminder_status = 'upcoming'
+
+            schedule.append({
+                'task_id': task.id,
+                'task_name': task.task_name,
+                'description': task.description,
+                'instructions': task.instructions,
+                'recommended_dap': task.recommended_dap,
+                'due_date': due_date.isoformat(),
+                'days_remaining': days_remaining,
+                'reminder_status': reminder_status,
+                'frequency': task.frequency,
+            })
+
+        return Response({
+            'crop_name': crop.name,
+            'planting_date': planting_date_str,
+            'total_tasks': len(schedule),
+            'overdue': len([t for t in schedule if t['reminder_status'] == 'overdue']),
+            'due_today': len([t for t in schedule if t['reminder_status'] == 'due_today']),
+            'due_soon': len([t for t in schedule if t['reminder_status'] == 'due_soon']),
+            'upcoming': len([t for t in schedule if t['reminder_status'] == 'upcoming']),
+            'schedule': schedule,
+        })
+
+    @action(detail=True, methods=['get'], url_path='alerts')
+    def alerts(self, request, pk=None):
+        crop = self.get_object()
+        alerts_list = []
+
+        try:
+            guide = crop.guides.first()
+            if guide:
+                if guide.pest_management:
+                    alerts_list.append({
+                        'type': 'pest',
+                        'severity': 'warning',
+                        'title': 'Pest Alert',
+                        'message': guide.pest_management,
+                        'icon': 'bug_report',
+                    })
+                if guide.disease_management:
+                    alerts_list.append({
+                        'type': 'disease',
+                        'severity': 'error',
+                        'title': 'Disease Prevention',
+                        'message': guide.disease_management,
+                        'icon': 'local_hospital',
+                    })
+        except Exception:
+            pass
+
+        alerts_list.append({
+            'type': 'temperature',
+            'severity': 'info',
+            'title': 'Optimal Temperature',
+            'message': (
+                f'Keep temperature between {crop.optimal_temperature - 5}°C and '
+                f'{crop.optimal_temperature + 5}°C. Current optimal: '
+                f'{crop.optimal_temperature}°C'
+            ),
+            'icon': 'thermostat',
+        })
+
+        alerts_list.append({
+            'type': 'water',
+            'severity': 'info',
+            'title': 'Watering Guide',
+            'message': (
+                f'This crop needs {crop.water_required_mm_per_week}mm of water per week. '
+                'Overwatering causes root rot. '
+                'Underwatering causes wilting.'
+            ),
+            'icon': 'water_drop',
+        })
+
+        return Response({
+            'crop_name': crop.name,
+            'total_alerts': len(alerts_list),
+            'alerts': alerts_list,
+        })
+
     @action(detail=False, methods=['get'])
     def by_season(self, request):
         season = request.query_params.get('season', None)

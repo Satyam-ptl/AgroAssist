@@ -122,12 +122,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             TextFormField(
                               controller: _usernameController,
                               decoration: const InputDecoration(
-                                labelText: 'Username',
+                                labelText: 'Username or Email',
                                 prefixIcon: Icon(Icons.person_outline),
                               ),
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
-                                  return 'Username is required';
+                                  return 'Username or email is required';
                                 }
                                 return null;
                               },
